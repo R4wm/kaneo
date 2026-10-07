@@ -14,6 +14,8 @@ Improves onboarding when:
 - Email OTP mail is slow or filtered (Google is an additional path, not a replacement).
 - Invited users can use Google with their invited Gmail without creating a password first.
 
+**Invitations (same branch):** Admins **never** see the accept URL. Only the invitee’s email contains a link with an **HMAC-signed token** (workspace, email, inviter, expiry). The server verifies the token, confirms the `invitation` row, and accept still writes workspace membership to the database.
+
 ## Product rules
 
 | Topic | Rule |
@@ -24,7 +26,8 @@ Improves onboarding when:
 | **Sign-in later** | Google OAuth; optional password after set; optional SMS later (other branch). |
 | **Email OTP / password** | Unchanged availability and prominence; Google is an **additional** option. |
 | **Email OTP before Google** | **Not required** for a **new** Google-created account. |
-| **Existing password account** | Unchanged: [`requireLocalEmailVerified`](../../apps/api/src/auth.ts) still blocks linking Google to an existing **unverified local** email (anti–account takeover). Targets **new Google sign-ups**, not Option B for all linking cases. |
+| **Workspace join** | Only after **`emailVerified`** (see below). |
+| **Stale unverified signup** | **First verifier wins** — verified OAuth/OTP displaces unverified row (below). |
 
 ```mermaid
 flowchart TB
@@ -92,9 +95,85 @@ On verified claim for email `E`:
 | **Accept invitation API/UI** | If session user unverified → block accept with clear copy (“Verify your email or continue with Google”). |
 | **Guest/anonymous** | Out of scope for PRSM prod (`DISABLE_GUEST_ACCESS`); do not weaken guest rules if enabled elsewhere. |
 
-**Flow:** Invite link → sign up (Google **or** email OTP) → **verify** → **then** `/invitation/accept/...` creates workspace member. Password-only signup without verify **cannot** join a workspace.
+**Flow:** Email with signed invite link → sign up (Google **or** email OTP) → **verify** → **then** `/invitation/accept/...` creates workspace member. Password-only signup without verify **cannot** join a workspace.
 
 Document exception: **first instance admin bootstrap** (no users yet) if still required by upstream.
+
+## Signed invitation links (PRSM)
+
+### Problem (upstream today)
+
+Kaneo treats the **invitation row id** as the secret:
+
+- URL: `/invitation/accept/{cuid}` ([`buildInvitationLink`](../../apps/web/src/lib/invitation-link.ts), [`sendInvitationEmail`](../../apps/api/src/auth.ts)).
+- After invite, **admins see and copy the full URL** ([`InvitationLinkField`](../../apps/web/src/components/team/invitation-link-field.tsx) in [`invite-team-member-modal.tsx`](../../apps/web/src/components/team/invite-team-member-modal.tsx)).
+- Accept passes that id to Better Auth ([`accept.$inviteId.tsx`](../../apps/web/src/routes/invitation/accept.$inviteId.tsx)).
+
+Workspace, inviter, role, and project access live in PostgreSQL ([`invitationTable`](../../apps/api/src/database/schema.ts)); the link is an opaque id, not a signed payload.
+
+**PRSM intent:** The **email recipient** gets the only copy of the accept URL. The path carries a **signed (HMAC) token**; the server verifies it, loads the `invitation` row, and accept still creates `workspace_member` via Better Auth hooks in [`auth.ts`](../../apps/api/src/auth.ts).
+
+```mermaid
+sequenceDiagram
+  participant Admin
+  participant API
+  participant DB
+  participant Email
+  participant Invitee
+
+  Admin->>API: inviteMember(email, role, ...)
+  API->>DB: insert invitation pending
+  API->>API: signToken(invitationId, workspaceId, email, inviterId, exp)
+  API->>Email: link with token only
+  Note over Admin: no URL in UI or API response
+  Invitee->>API: GET details(token)
+  API->>API: verify HMAC plus exp
+  API->>DB: load invitation by id, check status/email
+  Invitee->>API: accept verified session
+  API->>DB: accept invitation, create member
+```
+
+### Token design (signed payload)
+
+Use **HMAC-SHA256** over a canonical JSON payload (same idea as webhook signing in [`notification-preferences/delivery.ts`](../../apps/api/src/notification-preferences/delivery.ts)), not reversible encryption.
+
+| Field | Purpose |
+|-------|---------|
+| `invitationId` | Join to `invitation` row (status, project access, expiry) |
+| `workspaceId` | Detect tampering vs DB row |
+| `email` | Bind link to invited address |
+| `inviterId` | Audit / display consistency |
+| `exp` | Match or cap `invitation.expires_at` |
+
+- **Secret:** `INVITATION_TOKEN_SECRET` if set, else fall back to the auth secret (document in `.env.sample`; never log tokens).
+- **Wire format:** e.g. `base64url(JSON).base64url(hmac)` in route param `/invitation/accept/$token`.
+- **Verification:** Constant-time HMAC compare; reject expired or mismatched binding; then existing [`getInvitationDetails`](../../apps/api/src/utils/check-registration-allowed.ts) on the resolved id.
+
+**DB role unchanged:** Token is the bearer secret; **accept still mutates** `invitation.status` and creates membership through Better Auth.
+
+Signed token **does not replace** email verification for password users—it replaces **admin-held URL secrets** and weak reliance on guessing a cuid.
+
+### Admin cannot see the link
+
+| Surface | Change |
+|---------|--------|
+| [`invite-team-member-modal.tsx`](../../apps/web/src/components/team/invite-team-member-modal.tsx) | Remove [`InvitationLinkField`](../../apps/web/src/components/team/invitation-link-field.tsx); show “Email sent to {{email}}” plus **Resend**. |
+| [`use-copy-invitation-link`](../../apps/web/src/hooks/use-copy-invitation-link.ts) | Remove or dev-only if unused. |
+| `inviteMember` response | No buildable accept URL; id may remain for cancel/resend lists (id alone is useless without token). |
+| [`sendInvitationEmail`](../../apps/api/src/auth.ts) | **Only** place that builds the full URL (signed token + `KANEO_CLIENT_URL`). |
+| SMTP missing / send failure | Per [`invitation-email-failure.test.ts`](../../tests/api-integration/invitation-email-failure.test.ts): failure + resend, **never** a copy-link fallback. |
+
+Update i18n (`team.inviteModal.shareLinkDescription` in [`en-US.json`](../../i18n/en-US.json)) to email-sent copy.
+
+### Accept flow and API
+
+1. **New module** [`apps/api/src/invitation/signed-invitation-token.ts`](../../apps/api/src/invitation/signed-invitation-token.ts): `signInvitationToken`, `verifyInvitationToken` (unit tests beside file).
+2. **`getInvitationDetails`:** Param is the token string; verify → DB lookup by `invitationId`; token `email` must match row.
+3. **Web accept route:** Param is token; **`acceptInvitation`** uses **`invitation.id` from verified GET response** (Better Auth still needs `invitationId`).
+4. **Registration / OAuth:** **`x-invitation-id`** from verified invitation id after token lookup on invite landing (or pending-invitations list when logged in).
+5. **Backward compatibility (fork):** Prefer token-only new links; optional legacy bare cuid for one release, then remove.
+
+Revise the comment in [`auth.ts`](../../apps/api/src/auth.ts) (~L467–473) that says “invitation link id is the actual secret” when `requireEmailVerificationOnInvitation` is flipped to **`true`** for PRSM.
 
 ### Risks to address in implementation (why delete-unverified is sensitive)
 
@@ -131,10 +210,26 @@ This initiative **does not revert #1387**; it **displaces** unverified rows when
 
 - Bundled SMS / phone work (`prsm/sms-phone-verification`).
 - Replacing Google with other providers.
-- Changing workspace RBAC or invitation model.
+- Changing workspace RBAC (roles/permissions vocabulary).
 - Forcing Google-only (email OTP and password remain available where configured).
 
 ## Technical work (implementation checklist)
+
+### 0. Signed invitation tokens (recommended first)
+
+1. Token sign/verify + signed URL in `sendInvitationEmail`.
+2. API GET details by token; integration tests.
+3. Web accept route + accept uses id from verified details.
+4. Remove admin copy-link UI; i18n + email-failure UX (no link fallback).
+5. OpenAPI: [`apps/api/src/invitation/schema.ts`](../../apps/api/src/invitation/schema.ts) + `pnpm openapi:check:fix`.
+
+| Test area | Cases |
+|-----------|--------|
+| Token unit | Valid sign/verify; wrong secret; tampered payload; expired |
+| Integration | Email mock receives signed URL; admin response has no link |
+| Accept | Token URL → details → member; email mismatch fails |
+| Email failure | No copy-link fallback |
+| Regression | [`registration-invitation.test.ts`](../../tests/api-integration/registration-invitation.test.ts), [`accept.$inviteId.test.tsx`](../../apps/web/src/routes/invitation/accept.$inviteId.test.tsx), invite modal tests |
 
 ### 1. Verification before workspace
 
@@ -178,6 +273,8 @@ This initiative **does not revert #1387**; it **displaces** unverified rows when
 | Set password optional | After set, credential exists; Google still works |
 | Unverified placeholder + Google verify | Old user deleted; new verified OAuth user |
 | Two verified same email | Still blocked / no silent merge (regression) |
+| Signed invite token | Tampered/expired rejected; accept only with verified session + matching email |
+| Admin invite UX | No URL shown; resend only |
 
 ### 8. Docs
 
@@ -190,8 +287,8 @@ Prefer a **focused PR** to usekaneo/kaneo: invitation header on social sign-up, 
 
 ## Verification (manual)
 
-1. Create pending invitation for a Gmail address.
-2. Open invite link → sign up with Google (same email).
+1. Invite a Gmail address; confirm admin UI shows email sent **without** a copy-link field.
+2. Open link from email (signed token) → sign up with Google (same email).
 3. Land in workspace; confirm no password set.
 4. Sign out → sign in with Google again.
 5. Optionally set password → sign in with password.
