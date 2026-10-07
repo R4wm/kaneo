@@ -1,16 +1,18 @@
-# Google-first sign-up — plan (PRSM fork)
+# Allow Google sign-up — plan (PRSM fork)
 
-**Status:** Planned — branch **`prsm/google-first-signup`**.  
+**Status:** Planned — branch **`prsm/allow_google_signup_first`**.  
 **Separate from:** [SMS / text messaging](https://github.com/R4wm/kaneo/tree/prsm/sms-phone-verification/docs/prsm/SMS_PHONE_VERIFICATION.md) (`prsm/sms-phone-verification`).
 
 ## Goal
 
-Let new members **start with Google sign-in/sign-up**: persist **email from Google**, use Google as the **first and sufficient** auth factor. **No password required** to begin; password remains **optional** (set later in Account → Security).
+**Add** a supported path: new members may **sign up or sign in with Google** when configured. Persist **email from Google**; Google OAuth is **enough to start** without setting a password. **Email OTP and password sign-up stay fully supported** — this branch does **not** demote or hide password registration.
+
+Password remains **optional** until the user sets one in Account → Security.
 
 Improves onboarding when:
 
-- Email OTP mail is slow or filtered (user still has Google).
-- Invited users should not need a local password or manual email OTP before using Google.
+- Email OTP mail is slow or filtered (Google is an additional path, not a replacement).
+- Invited users can use Google with their invited Gmail without creating a password first.
 
 ## Product rules
 
@@ -20,8 +22,9 @@ Improves onboarding when:
 | **Email on user row** | Set from Google profile; treat provider **verified email** as trusted for **new** Google-created users (`emailVerified` true when Better Auth/Google supply verified claim). |
 | **Password** | **Not required.** No `credential` account until user chooses “Set password” in settings ([change-password-settings.tsx](../../apps/web/src/components/account/change-password-settings.tsx) already hides change form when no credential). |
 | **Sign-in later** | Google OAuth; optional password after set; optional SMS later (other branch). |
-| **Email OTP first** | **Not required** before first Google sign-up for a **new** account. |
-| **Existing password account** | Unchanged: [`requireLocalEmailVerified`](../../apps/api/src/auth.ts) still blocks linking Google to an existing **unverified local** email (anti–account takeover). This plan targets **Google-first new users**, not merging Option B for all linking cases. |
+| **Email OTP / password** | Unchanged availability and prominence; Google is an **additional** option. |
+| **Email OTP before Google** | **Not required** for a **new** Google-created account. |
+| **Existing password account** | Unchanged: [`requireLocalEmailVerified`](../../apps/api/src/auth.ts) still blocks linking Google to an existing **unverified local** email (anti–account takeover). Targets **new Google sign-ups**, not Option B for all linking cases. |
 
 ```mermaid
 flowchart TB
@@ -58,8 +61,8 @@ flowchart TB
 
 ### 2. Web — onboarding UX
 
-- **Sign-up (invite):** When `hasGoogleSignIn`, present Google as a **first-class** path (equal or primary for invited Gmail); short copy: “Continue with Google — no password needed.”
-- **Sign-in:** Same; avoid implying password is required.
+- **Sign-up (invite):** When `hasGoogleSignIn`, show Google **alongside** email/password/OTP with **equal prominence**; copy example: “Continue with Google” (optional: “no password required for this path”).
+- **Sign-in:** Same parity; do not remove or de-emphasize password or email OTP.
 - **After Google session:** If no credential account, show **“Set a password (optional)”** in Security — reuse or extend set-password flow if missing (today UI may only expose *change* password).
 - **Errors:** Map Better Auth linking errors to actionable copy for invite mismatch vs wrong Google account.
 
@@ -85,8 +88,8 @@ flowchart TB
 
 ### 6. Docs
 
-- PRSM runbook: recommended member flow “Accept invite → Continue with Google.”
-- Update email auth checklist: Google-first path for Gmail invitees.
+- PRSM runbook: optional member flow “Accept invite → Continue with Google **or** email OTP/password.”
+- Update email auth checklist: document Google sign-up path for Gmail invitees (peer to email).
 
 ## Upstream
 
