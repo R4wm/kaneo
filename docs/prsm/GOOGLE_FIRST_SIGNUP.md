@@ -33,7 +33,8 @@ flowchart TB
   Callback --> User[user plus account rows]
   User --> EmailSaved[email from Google]
   User --> NoPwd[no credential password yet]
-  NoPwd --> Session[Session and workspace]
+  NoPwd --> Session[Session verified]
+  Session --> Accept[Then accept invite workspace]
   Session --> Optional[Optional set password later]
 ```
 
@@ -135,11 +136,19 @@ This initiative **does not revert #1387**; it **displaces** unverified rows when
 
 ## Technical work (implementation checklist)
 
-### 1. Verify OAuth user creation
+### 1. Verification before workspace
 
-- Confirm Better Auth sets `email` + `emailVerified` from Google on **new user** create (integration test on fork).
-- Confirm `databaseHooks.user.create` + [`assertUserRegistrationAllowed`](../../apps/api/src/utils/registration-policy.ts) allow OAuth callback with verified provider email + invitation when `DISABLE_REGISTRATION=true`.
-- Pass **`x-invitation-id`** (or query) from sign-up/sign-in Google buttons when user landed from invite link (mirror [verify-otp.tsx](../../apps/web/src/routes/auth/verify-otp.tsx) email OTP).
+- Set **`requireEmailVerificationOnInvitation: true`** in [auth.ts](../../apps/api/src/auth.ts).
+- Block invitation accept for unverified users in UI and API; route to email OTP or Google.
+- Tests: unverified cannot join workspace; verified Google user can.
+
+### 2. First verifier wins
+
+- On verified OAuth or email OTP for email E: delete unverified user with E via [`deleteAccountData`](../../apps/api/src/user/controllers/delete-account-data.ts), then create verified user.
+
+### 3. OAuth user creation
+
+- Confirm Google create sets `emailVerified: true`; pass **`x-invitation-id`** on invite sign-up/sign-in flows.
 
 ### 4. Web — onboarding UX
 
