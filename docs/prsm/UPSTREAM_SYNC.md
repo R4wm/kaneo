@@ -24,9 +24,11 @@ Example: **v2.29.3** (2026-09-29) → **v2.35.0** (2026-10-06).
 ## Remotes (suggested)
 
 ```text
-origin    → prsmusa/kaneo (when published)
-upstream  → usekaneo/kaneo
+origin    → https://github.com/R4wm/kaneo.git
+upstream  → https://github.com/usekaneo/kaneo.git
 ```
+
+GitHub fork: **[github.com/R4wm/kaneo](https://github.com/R4wm/kaneo)** (not a local-only clone).
 
 ## Branch naming
 

@@ -6,8 +6,9 @@ Canonical planning doc for PRSM work on Kaneo. Prod [work.prsmusa.com](https://w
 
 | Item | Value |
 |------|--------|
+| Fork (PRSM) | [R4wm/kaneo](https://github.com/R4wm/kaneo) |
 | Upstream | [usekaneo/kaneo](https://github.com/usekaneo/kaneo) |
-| Base tag | **v2.29.3** (matches prod digest) |
+| Base tag | **v2.29.3** (matches prod digest; branch `v2.29.3-base` on fork) |
 | Branch | **`prsm/planning`** |
 | Related doc | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) |
 
