@@ -45,28 +45,60 @@ flowchart TB
 |----------|-------------------------|----------------|
 | **New user** created on Google OAuth callback | **`true`** when Google asserts verified email | Pending invitations UI, workspace flows, and “real member” state match email OTP sign-up. |
 | **Returning user** signs in with Google again | stays `true` | No regression. |
-| **Existing local user** (password/OTP) with `emailVerified: false` tries to **link** Google | **Out of scope by default** — still blocked by `requireLocalEmailVerified` | Anti-takeover. Optional **small add-on** in this branch: on successful link when Google email matches `user.email` and provider says verified, set `emailVerified: true` (narrow Option B — document if implemented). |
+| **Existing local user** (password/OTP) with `emailVerified: false` on same email | **First verifier wins** (see below) | Real owner can displace a stale unverified signup. |
+
+## First verifier wins (PRSM policy)
+
+**Idea:** An **unverified** email/password signup is a **placeholder**, not a real member. Whoever **proves** they own the email first (Google with verified claim, or email OTP) **wins**; the unverified row is removed and a **fresh verified account** is created.
+
+**Example:** Bully registers `victim@gmail.com` + password, never verifies. Real user signs in with **Google** (or completes **email OTP**) for `victim@gmail.com` → bully’s **unverified user is deleted** → new user from the verified flow with `emailVerified: true`.
+
+### Chosen approach: delete unverified, create fresh (new `user.id`)
+
+On verified claim for email `E`:
+
+1. Find existing user with email `E` and **`emailVerified === false`** (at most one, unique email).
+2. Run full account teardown on that user ([`deleteAccountData`](../../apps/api/src/user/controllers/delete-account-data.ts) / admin remove-user path) so sessions, credentials, and FKs are handled intentionally — **not** a raw SQL delete.
+3. Proceed with normal OAuth user **create** (or email OTP verify create) for `E` with `emailVerified: true`.
+
+**Keep `requireLocalEmailVerified: true`** for the case **both** sides are already verified (do not merge two verified identities blindly).
+
+### Risks to address in implementation (why this is sensitive)
+
+| Risk | Mitigation |
+|------|------------|
+| Bully **accepted an invite** or created workspace junk under unverified id | Deletion removes that membership; **invitation may need re-accept** for the real user. Document for PRSM ops. |
+| Bully verified **before** victim (inbox access) | “First verifier wins” correctly gives bully the account — same as email OTP today. |
+| Partial/orphan data | Reuse Kaneo’s existing user deletion controller; add integration tests. |
+| Race: two verifications at once | Transaction or unique constraint + retry; test concurrent verify. |
+
+**Upstream note:** This is **stronger** than #1387’s “block link until verified.” Present as PRSM/fork behavior first with tests; upstream may prefer **reclaim row** instead of delete — be ready to discuss.
+
+### Upstream history (context)
+
+- [#987](https://github.com/usekaneo/kaneo/pull/987): enabled OAuth **linking** with `requireLocalEmailVerified: false` (OIDC worked but pre-register risk).
+- [#1387](https://github.com/usekaneo/kaneo/pull/1387): set `requireLocalEmailVerified: true` — block link to unverified local account (fix pre-register takeover).
+
+This initiative **does not revert #1387**; it **displaces** unverified rows when a **verified** OAuth/OTP flow arrives for the same email.
 
 ### Implementation
 
-1. **Prove current behavior** with an integration test: Google OAuth create (mock or test provider) → `user.emailVerified === true`.
-2. If Better Auth **does not** set the flag for Google on create, fix in [auth.ts](../../apps/api/src/auth.ts) via supported config (e.g. map profile / trusted provider verified-email handling) or a **`databaseHooks.user.create` / post-OAuth update** that sets `emailVerified: true` only when the provider verified-email claim is true — **never** for unverified provider emails.
-3. Registration policy already treats OAuth with `emailVerified: true` like other verified flows ([registration-policy.test.ts](../../tests/api-integration/auth-registration-policy.test.ts)).
-
-Do **not** globally disable `requireLocalEmailVerified` without the narrow link-time update above.
+1. **Hook** OAuth callback / email OTP verify **before** Better Auth link fails: if conflicting unverified user → delete → allow create.
+2. Integration tests: unverified password user → Google verified sign-up → old id gone, new id verified, no credential on bully path.
+3. Prove new Google users still get `emailVerified: true` on create.
+4. Registration policy + invitation id on OAuth unchanged.
 
 ## Current behavior (baseline)
 
 - Sign-up already renders [SSOProviders](../../apps/web/src/components/auth/sso-providers.tsx) / Google on [sign-up.tsx](../../apps/web/src/routes/auth/sign-up.tsx).
 - Invite-only OAuth signup is supported when provider email matches a pending invitation ([registration-invitation.test.ts](../../tests/api-integration/registration-invitation.test.ts)).
-- Pain point on PRSM: members who **create a password account first** with `email_verified` still false see **Google link/sign-in fail** until local email is verified — UX should offer **Google sign-up on a fresh invite** (peer paths) or implement narrow link-time verify above.
+- Pain point on PRSM: unverified password signup blocks Google (**#1387**). **First verifier wins** (above) plus peer Google on invite addresses this.
 
 ## Out of scope (this initiative)
 
 - Bundled SMS / phone work (`prsm/sms-phone-verification`).
 - Replacing Google with other providers.
 - Changing workspace RBAC or invitation model.
-- Full “Option B” (trust Google verify to fix **existing** unverified local accounts) — separate small auth PR if still needed.
 - Forcing Google-only (email OTP and password remain available where configured).
 
 ## Technical work (implementation checklist)
@@ -102,7 +134,8 @@ Do **not** globally disable `requireLocalEmailVerified` without the narrow link-
 | Invite + Google wrong email | Registration denied |
 | Google-only session | Authenticated; workspace invite accept works |
 | Set password optional | After set, credential exists; Google still works |
-| Local unverified + Google link | Still blocked (security regression test) |
+| Unverified placeholder + Google verify | Old user deleted; new verified OAuth user |
+| Two verified same email | Still blocked / no silent merge (regression) |
 
 ### 6. Docs
 
