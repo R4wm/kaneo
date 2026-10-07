@@ -19,7 +19,7 @@ cd ~/github/kaneo
 git remote add upstream https://github.com/usekaneo/kaneo.git
 git remote set-url --push upstream no_push   # blocks accidental push to upstream
 git fetch upstream --tags
-git checkout prsm/planning   # or your prsm/* feature branch
+git checkout prsm/sms-phone-verification   # or your prsm/* feature branch
 git remote -v
 # origin    → R4wm/kaneo (fetch + push)
 # upstream  → usekaneo/kaneo (fetch only; push disabled)
@@ -52,7 +52,7 @@ Never `git push upstream …`.
 
 | Branch | Where it lives | Purpose |
 |--------|----------------|---------|
-| `prsm/planning` | **origin** | Docs, research |
+| `prsm/sms-phone-verification` | **origin** | SMS upstream PR plan + PRSM docs |
 | `prsm/<feature>` | **origin** | Features / spikes |
 | `v2.29.3-base` | **origin** | Optional tag bookmark (not prod deploy) |
 | `main` on fork | **origin** | May track merged upstream; not required for PRSM doc work |

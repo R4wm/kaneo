@@ -9,7 +9,7 @@ Canonical planning doc for PRSM work on Kaneo. Prod [work.prsmusa.com](https://w
 | Fork (PRSM) | [R4wm/kaneo](https://github.com/R4wm/kaneo) |
 | Upstream | [usekaneo/kaneo](https://github.com/usekaneo/kaneo) |
 | Base tag | **v2.29.3** (matches prod digest; branch `v2.29.3-base` on fork) |
-| Branch | **`prsm/planning`** |
+| Branch | **`prsm/sms-phone-verification`** (plan + upstream SMS PR prep) |
 | Related doc | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) |
 
 ## How Kaneo works (fundamentals for PRSM)
@@ -20,7 +20,7 @@ flowchart TB
     Email[Email + password]
     EmailOtp[Email OTP sign-in]
     Google[Google OAuth]
-    PhoneFuture[Phone OTP - deferred]
+    PhoneOpt[Phone SMS OTP - optional upstream PR]
   end
   subgraph org [Organization]
     WS[Workspace]
@@ -35,6 +35,7 @@ flowchart TB
   Email --> WS
   EmailOtp --> Email
   Google -->|"requireLocalEmailVerified"| Email
+  PhoneOpt -->|"verified number only"| Email
   Invite --> WS
   WS --> Project --> Task
   Project --> Public
@@ -53,7 +54,7 @@ flowchart TB
 
 ## Phase 1 — Stabilize auth and fix bugs
 
-**Goal:** Reliable member onboarding before monetization or SMS.
+**Goal:** Reliable member onboarding. SMS phone verification is a **separate upstream PR** ([SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md)) and must not expand into auth-policy or OAuth changes.
 
 ### Known issues (backlog)
 
@@ -98,11 +99,16 @@ Upstream releases frequently (e.g. v2.29.3 → v2.35.0 in ~1 week). Plan **separ
 
 **Deliverable:** `docs/prsm/monetization.md` + presign spike (no prod deploy).
 
-## Phase 4 — SMS / ClickSend (deferred)
+## Phase 4 — SMS phone verification (active upstream target)
 
-- Optional phone sign-in **only after `email_verified`**.
-- No `signUpOnVerification`.
-- See Kaneo task #6 for related SMS idea; this plan defers until Phase 1–2 complete.
+**Single narrow PR to upstream** — full spec: [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md).
+
+- Optional verified phone on existing email accounts; SMS OTP sign-in when SMS env is set (**session must not depend on `email_verified`**).
+- Better Auth `phoneNumber` plugin; **`signUpOnVerification` off**.
+- ClickSend via `packages/sms` (transport only; Better Auth stores OTPs).
+- **Not in this PR:** Google linking changes, registration/invite policy, phone-first signup, email OTP replacement.
+
+PRSM board task **#6** = rollout after merge; Phases 2–3 remain docs/spikes unless reprioritized.
 
 ## Fork hygiene
 
@@ -113,16 +119,17 @@ Upstream releases frequently (e.g. v2.29.3 → v2.35.0 in ~1 week). Plan **separ
 
 ## Execution order
 
-1. Fork + `prsm/planning` + this doc.
+1. Fork + `prsm/sms-phone-verification` plan branch + this doc.
 2. Fundamentals + runbook sync + bug fixes (config/infra; no custom image).
 3. Test user email auth checklist.
 4. Public sharing evaluation.
 5. Monetization memo + upload-tier spike.
 6. Upstream version bump (security).
-7. SMS/ClickSend when auth is stable.
+7. **Upstream PR:** SMS phone verification per [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md) (fork branch → usekaneo/kaneo).
 
 ## Out of scope (until reprioritized)
 
 - Replacing Creem with Stripe in upstream without a fork.
-- Phone-first signup.
+- Phone-first signup (including bundling with Phase 4 SMS PR).
+- OAuth / `email_verified` linking changes (PRSM fork follow-up).
 - Per-ticket public links without public project or custom build.

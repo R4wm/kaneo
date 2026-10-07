@@ -69,6 +69,7 @@ Verify live: `GET https://work.prsmusa.com/api/config`
 
 ## Related PRSM docs
 
+- [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md) — upstream SMS scope (OAuth linking unchanged)
 - [PRODUCT_PLAN.md](./PRODUCT_PLAN.md)
 - [EMAIL_AUTH_TEST_CHECKLIST.md](./EMAIL_AUTH_TEST_CHECKLIST.md)
 - [public-sharing.md](./public-sharing.md)

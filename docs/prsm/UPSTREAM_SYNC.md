@@ -42,7 +42,7 @@ Full policy: [GIT_WORKFLOW.md](./GIT_WORKFLOW.md).
 
 | Branch | Purpose |
 |--------|---------|
-| `prsm/planning` | Docs and research spikes |
+| `prsm/sms-phone-verification` | SMS upstream PR plan; other PRSM docs on branch |
 | `prsm/<feature>` | Features; upstream PRs sourced from here |
 | `main` on **origin** | Optional sync of upstream; push only to **origin**, never upstream |
 

@@ -14,6 +14,7 @@ Production remains **upstream pinned** at work.prsmusa.com unless otherwise note
 | [upload-tiers-design.md](./upload-tiers-design.md) | Premium upload limits spike |
 | [UPGRADE_ASSESSMENT.md](./UPGRADE_ASSESSMENT.md) | v2.29.3 → latest |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | Merge workflow |
-| [SMS_CLICKSEND_DEFERRED.md](./SMS_CLICKSEND_DEFERRED.md) | Future SMS OTP |
+| [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md) | **Upstream PR:** optional SMS verify + OTP sign-in |
+| [SMS_CLICKSEND_DEFERRED.md](./SMS_CLICKSEND_DEFERRED.md) | Retired pointer (use SMS doc above) |
 
 Infra deploy runbook: [infra-docs `runbooks/kaneo-prsmusa.md`](https://github.com/r4wm/infra-docs) (path on baser4wm).
