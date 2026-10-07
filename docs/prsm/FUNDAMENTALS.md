@@ -6,8 +6,8 @@ Reference for operators and fork contributors. Upstream docs: [kaneo.app/docs](h
 
 | Item | Value |
 |------|--------|
-| Fork | [github.com/R4wm/kaneo](https://github.com/R4wm/kaneo) |
-| Upstream | [usekaneo/kaneo](https://github.com/usekaneo/kaneo) |
+| Fork (`origin`) | [github.com/R4wm/kaneo](https://github.com/R4wm/kaneo) — **only push target** |
+| Upstream (fetch only) | [usekaneo/kaneo](https://github.com/usekaneo/kaneo) — see [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) |
 | Prod image | Pinned upstream **v2.29.3** (see infra-docs `deployments/kaneo/compose.yaml`) |
 
 ## Identity and auth (Better Auth)

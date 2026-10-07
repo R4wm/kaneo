@@ -4,6 +4,7 @@ Production remains **upstream pinned** at work.prsmusa.com unless otherwise note
 
 | Document | Purpose |
 |----------|---------|
+| [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) | **origin = R4wm fork; never push upstream** |
 | [PRODUCT_PLAN.md](./PRODUCT_PLAN.md) | Roadmap and phases |
 | [FUNDAMENTALS.md](./FUNDAMENTALS.md) | Auth, workspace, prod config |
 | [EMAIL_AUTH_TEST_CHECKLIST.md](./EMAIL_AUTH_TEST_CHECKLIST.md) | Manual auth QA |

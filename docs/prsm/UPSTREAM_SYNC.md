@@ -21,22 +21,30 @@ Example: **v2.29.3** (2026-09-29) → **v2.35.0** (2026-10-06).
    - Public project read (`isPublic`) if used
 6. Update **infra-docs** digest pin only after smoke pass.
 
-## Remotes (suggested)
+## Remotes (required on PRSM hosts)
 
 ```text
-origin    → https://github.com/R4wm/kaneo.git
-upstream  → https://github.com/usekaneo/kaneo.git
+origin    → https://github.com/R4wm/kaneo.git     (fetch + push)
+upstream  → https://github.com/usekaneo/kaneo.git (fetch only)
 ```
 
-GitHub fork: **[github.com/R4wm/kaneo](https://github.com/R4wm/kaneo)** (not a local-only clone).
+After adding upstream:
+
+```bash
+git remote set-url --push upstream no_push
+```
+
+**Never push to upstream** — no direct pushes to `usekaneo/kaneo` or its `main`. Contribute via PR from **R4wm/kaneo** only.
+
+Full policy: [GIT_WORKFLOW.md](./GIT_WORKFLOW.md).
 
 ## Branch naming
 
 | Branch | Purpose |
 |--------|---------|
-| `main` | Tracks upstream release line |
 | `prsm/planning` | Docs and research spikes |
-| `prsm/<feature>` | Features intended for upstream PR |
+| `prsm/<feature>` | Features; upstream PRs sourced from here |
+| `main` on **origin** | Optional sync of upstream; push only to **origin**, never upstream |
 
 ## Prod rule
 
