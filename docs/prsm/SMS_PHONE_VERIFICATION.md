@@ -1,101 +1,133 @@
-# SMS phone verification — upstream PR scope
+# SMS / text messaging — plan (PRSM fork)
 
-**Status:** Planned. Target: a **single, narrow** pull request to [usekaneo/kaneo](https://github.com/usekaneo/kaneo), developed on a `feat/*` branch from current upstream `main`, then cherry-picked or rebased from the PRSM fork as needed.
+**Status:** Planned — implementation on branch **`prsm/sms-phone-verification`**.  
+**Prod:** [work.prsmusa.com](https://work.prsmusa.com) stays on pinned upstream until a fork build with SMS is approved.
 
-**PRSM prod:** Stays on pinned upstream until that PR merges and infra opts in. ClickSend credentials are PRSM-specific; upstream ships **optional SMS** via env (same pattern as SMTP for email).
+## Why
 
-## Goal
+PRSM members **create accounts with email** (OTP, password, OAuth, invitations) as today. **Email OTP deliverability is unreliable** — spam/promotions filters, typos, HTML mail ignored. Users look locked out while the account exists.
 
-Let an **existing** user (already has an email account):
+**Near term:** Gmail-style **verified phone** on the account + **SMS OTP backup sign-in** when email codes do not arrive.
 
-1. Add or change a phone number in account settings **only after OTP verification** (number is not saved until verify succeeds).
-2. Sign in with **SMS OTP** to that verified number when SMS is configured on the instance.
+**Longer term:** Introduce **text messaging** in Kaneo via **`@kaneo/sms`** (provider interface + ClickSend). Auth OTP is the first consumer; later send **transactional SMS** (e.g. task/ticket done, assignments) to users with a verified phone, with opt-in and permissions designed in a follow-up.
 
-Phone is **optional**. Email/password, email OTP, and OAuth behavior stay unchanged.
+---
 
-### Email verification must not block phone login
+## Product rules
 
-If the user has a **`phoneNumberVerified`** number on their account, they may **sign in with SMS OTP** and receive a normal session **regardless of `emailVerified`**. Do not add hooks, middleware, or UI that require email verification for the phone sign-in path.
+| Topic | Rule |
+|-------|------|
+| **Create account** | **Email only** — existing flows. **No phone sign-up.** |
+| **Add phone** | Logged in → Account **Security** → E.164 → SMS OTP → number saved with `phoneNumberVerified`. |
+| **Sign in** | Email/password/OAuth unchanged. **Also:** SMS OTP if a **verified phone** is on that user. |
+| **Link phone to user** | OTP while **authenticated** (or optional skippable step right after email sign-up). No synthetic emails, no merging two accounts. |
+| **One phone** | Unique `phone_number` per user when set. |
+| **`email_verified`** | SMS sign-in **does not** require email verified. |
+| **Invites / registration** | Unchanged — email-centric. |
 
-- **In scope:** Verified phone → SMS OTP → session (even when `email_verified` is false).
-- **Unchanged (this PR):** Google **account linking** still uses `requireLocalEmailVerified`; pending-invitation listing may still require email verify — those are separate from phone login.
-- **Not in scope:** Fixing Google-first or email-OTP UX; bundling Option B (Google sets `emailVerified`).
+```mermaid
+flowchart TB
+  subgraph create [Account creation unchanged]
+    E[Email OTP password or OAuth] --> UserRow[user row with email]
+  end
+  subgraph attach [Gmail-style attach]
+    UserRow --> Session[Logged in]
+    Session --> Sec[Security add phone]
+    Sec --> OTP[SMS OTP verify]
+    OTP --> Verified[phoneNumberVerified true]
+  end
+  subgraph login [Sign in later]
+    Verified --> PhoneIn[Sign in with phone OTP]
+    UserRow --> EmailIn[Sign in with email as today]
+    PhoneIn --> SameUser[same user.id]
+    EmailIn --> SameUser
+  end
+```
 
-Users who cannot receive email OTP but have verified phone should be able to access the app via SMS alone.
+---
 
-## Merge-friendly principles
+## Out of scope (this phase)
 
-- One feature: **Better Auth phone plugin + SMS transport + minimal UI**.
-- No changes to Google linking, registration policy, invitations, or workspace RBAC.
-- No PRSM-only docs in the upstream PR (this file stays under `docs/prsm/` on the fork).
-- Follow existing patterns: `packages/email` → `packages/sms`, env-gated delivery, integration tests, i18n, `/api/config` flags.
+- Phone-first registration (`signUpOnVerification`, phone-only accounts)
+- Phone on invitation records
+- Hiding or replacing email sign-up/sign-in when SMS is on
+- Google / `requireLocalEmailVerified` changes
+- **Notification SMS** — done alerts, prefs, quiet hours (reuse `@kaneo/sms` later)
 
-## In scope (upstream PR)
+---
 
-| Area | Deliverable |
-|------|-------------|
-| **Auth** | Better Auth [`phoneNumber`](https://www.better-auth.com/docs/plugins/phone-number) plugin on API + client. **`signUpOnVerification` disabled** — no phone-only accounts. |
-| **User fields** | `phoneNumber` (E.164) and `phoneNumberVerified` on `user` (Better Auth schema / migration). Product language: “phone verified”. |
-| **SMS transport** | `packages/sms` with ClickSend implementation (`POST https://rest.clicksend.com/v3/sms/send`). Env: `CLICKSEND_USERNAME`, `CLICKSEND_API_KEY`, optional `CLICKSEND_SENDER_ID`. Instance works without these (SMS UI hidden / endpoints unavailable). |
-| **OTP** | Better Auth generates and validates codes; ClickSend **only sends** the message (not Twilio-style external verify). Do not `await` send on the hot path (queue / background like sign-in email). |
-| **Settings UI** | Logged-in: enter phone → send OTP → verify with `updatePhoneNumber: true`. Remove phone via `updateUser({ phoneNumber: null })` (clears verified). |
-| **Sign-in UI** | Optional “Text me a code” when SMS is configured; only for numbers already tied to a **verified** account (same abuse posture as email OTP where applicable). |
-| **Admin** | When an admin changes a user’s phone, clear `phoneNumberVerified` (mirror email change → `emailVerified` false). |
-| **Tests** | API integration: verify-before-save, sign-in OTP for existing user, **SMS sign-in with unverified email**, SMS disabled without env. |
-| **Docs** | Self-hosting: env vars and behavior in `apps/docs` (not PRSM runbooks). |
+## Technical implementation
 
-### User flows (acceptance)
+### 1. `packages/sms` (`@kaneo/sms`)
 
-**Add phone (session required)**
+Shared foundation for auth and future alerts.
 
-1. User submits E.164 number.
-2. Server sends OTP via SMS (if configured).
-3. User submits code; on success, phone is stored and `phoneNumberVerified = true`.
+| Module | Role |
+|--------|------|
+| `sms-provider.ts` | `SmsProvider`: `send({ to, body })` |
+| `clicksend-provider.ts` | ClickSend REST |
+| `sms-config.ts` | `isSmsConfigured()` |
+| `index.ts` | `getSmsProvider()`, `sendSms()` |
 
-**Sign-in with phone**
+Env: `CLICKSEND_USERNAME`, `CLICKSEND_API_KEY`, optional `CLICKSEND_SENDER_ID`.  
+Pattern: [packages/email](../../packages/email). Plain text bodies; no auth logic inside the provider.
 
-1. User requests OTP for a phone number.
-2. If a user exists with that number and `phoneNumberVerified`, send OTP; verify creates session (**must not** require `emailVerified`).
-3. If no such user, generic response (no account enumeration).
+### 2. Database
 
-**Acceptance:** Integration test: user with `emailVerified: false`, `phoneNumberVerified: true` completes SMS OTP sign-in and reaches an authenticated session.
+On `user`:
 
-**Change phone**
+- `phone_number` (nullable, unique)
+- `phone_number_verified` (boolean, default false)
 
-1. OTP to **new** number; verify with `updatePhoneNumber: true`.
-2. Direct `updateUser` to a new non-null phone without OTP remains blocked (plugin behavior).
+Generate migration: `pnpm --filter @kaneo/api db:generate`.
 
-## Out of scope (this PR — do not bundle)
+### 3. API — Better Auth `phoneNumber` plugin
 
-These stay on the PRSM fork or later tickets so the upstream PR stays reviewable:
+- Enable when `isSmsConfigured()` and not `DISABLE_PHONE_SIGN_IN`.
+- **`signUpOnVerification` off** — phone cannot create users.
+- `sendOTP` → queue SMS (do not await on request thread).
+- Sign-in OTP: send only if user exists with verified phone (`shouldDeliverSignInSms`).
+- Attach phone: session required; verify with `updatePhoneNumber: true`.
+- Turnstile + rate limits on send-otp paths.
+- Admin phone change → clear `phoneNumberVerified` (mirror email admin change).
 
-| Item | Notes |
-|------|--------|
-| **Google / `requireLocalEmailVerified`** | e.g. treating Google verified email as local `emailVerified` — separate auth UX PR. |
-| **Phone-first registration** | `signUpOnVerification`, temp email users. |
-| **Replace or demote email OTP** | SMS is additive sign-in only. |
-| **Require `email_verified` before add phone** | PRSM may enforce in fork/policy later; not required for generic upstream. |
-| **ClickSend-only product branding** | Upstream exposes generic “SMS configured”; ClickSend is one provider implementation. |
-| **Billing, sharing, upload tiers** | Unrelated phases in [PRODUCT_PLAN.md](./PRODUCT_PLAN.md). |
-| **PRSM deploy / runbooks** | [infra-docs](https://github.com/r4wm/infra-docs) after merge. |
+### 4. Config (`GET /api/config`)
 
-## Implementation sketch (for estimations)
+- `hasSms`
+- `disablePhoneSignIn`
 
-1. Migration: `phone_number`, `phone_number_verified` on `user`.
-2. `packages/sms`: `sendSms({ to, body })` + ClickSend adapter.
-3. `apps/api/src/auth.ts`: `phoneNumber({ sendOTP })` wired to `packages/sms` when env present.
-4. `apps/web`: account settings block + sign-in path gated by config.
-5. `openapi:check:fix` if new public routes; config schema for `hasSms` / `disablePhoneSignIn` if needed.
+### 5. Web
 
-## PRSM follow-up (after upstream merge)
+- **Sign-up:** no phone UI.
+- **Sign-in:** optional “Sign in with phone” when SMS configured (backup copy).
+- **Security settings:** add / change / remove phone via OTP.
+- **Optional:** after email sign-up, skippable “Add phone for text sign-in codes?”
+- i18n: SMS as backup sign-in, not alternate registration.
 
-- Enable ClickSend env on fork image / prod when approved.
-- Board task **#6** tracks PRSM rollout, not upstream design.
+### 6. Tests
 
-Do **not** add a PRSM fork rule that requires `emailVerified` before phone enrollment or before SMS sign-in — that would contradict the phone-login goal above.
+Integration: attach phone, SMS sign-in (including `emailVerified: false`), no user creation from phone sign-up alone, unique phone, email OTP unchanged with SMS enabled.
+
+### 7. Env (fork)
+
+```
+CLICKSEND_USERNAME=
+CLICKSEND_API_KEY=
+CLICKSEND_SENDER_ID=
+DISABLE_PHONE_SIGN_IN=false
+```
+
+---
+
+## Upstream
+
+This design is suitable for a later **narrow upstream PR**: `@kaneo/sms` + verified phone on email accounts + backup sign-in, without changing registration. PRSM docs stay on the fork.
+
+---
 
 ## References
 
 - [ClickSend Send SMS](https://developers.clicksend.com/docs/messaging/sms/other/send-sms)
 - [Better Auth phone number plugin](https://www.better-auth.com/docs/plugins/phone-number)
-- Kaneo email OTP + `packages/email` (pattern to mirror)
+- [PRODUCT_PLAN.md](./PRODUCT_PLAN.md) Phase 4
+- [EMAIL_AUTH_TEST_CHECKLIST.md](./EMAIL_AUTH_TEST_CHECKLIST.md)

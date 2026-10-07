@@ -99,16 +99,16 @@ Upstream releases frequently (e.g. v2.29.3 → v2.35.0 in ~1 week). Plan **separ
 
 **Deliverable:** `docs/prsm/monetization.md` + presign spike (no prod deploy).
 
-## Phase 4 — SMS phone verification (active upstream target)
+## Phase 4 — Text messaging (SMS)
 
-**Single narrow PR to upstream** — full spec: [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md).
+**Spec:** [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md). Implement on fork branch **`prsm/sms-phone-verification`**.
 
-- Optional verified phone on existing email accounts; SMS OTP sign-in when SMS env is set (**session must not depend on `email_verified`**).
-- Better Auth `phoneNumber` plugin; **`signUpOnVerification` off**.
-- ClickSend via `packages/sms` (transport only; Better Auth stores OTPs).
-- **Not in this PR:** Google linking changes, registration/invite policy, phone-first signup, email OTP replacement.
+- **Email-first accounts only** — phone is added later (Gmail-style OTP attach) for **backup sign-in** when email OTP is missed or filtered.
+- **`@kaneo/sms`** foundation (ClickSend first); later transactional texts (e.g. ticket done alerts).
+- Better Auth `phoneNumber` plugin; **`signUpOnVerification` off**; SMS sign-in does not require `email_verified`.
+- Optional upstream PR after fork proves behavior (no registration model change).
 
-PRSM board task **#6** = rollout after merge; Phases 2–3 remain docs/spikes unless reprioritized.
+PRSM board task **#6** = rollout; Phases 2–3 remain docs/spikes unless reprioritized.
 
 ## Fork hygiene
 
@@ -125,7 +125,7 @@ PRSM board task **#6** = rollout after merge; Phases 2–3 remain docs/spikes un
 4. Public sharing evaluation.
 5. Monetization memo + upload-tier spike.
 6. Upstream version bump (security).
-7. **Upstream PR:** SMS phone verification per [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md) (fork branch → usekaneo/kaneo).
+7. **Implement SMS** per [SMS_PHONE_VERIFICATION.md](./SMS_PHONE_VERIFICATION.md) on fork; upstream PR when ready.
 
 ## Out of scope (until reprioritized)
 
