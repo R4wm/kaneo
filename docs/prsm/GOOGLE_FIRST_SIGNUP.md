@@ -63,11 +63,43 @@ On verified claim for email `E`:
 
 **Keep `requireLocalEmailVerified: true`** for the case **both** sides are already verified (do not merge two verified identities blindly).
 
-### Risks to address in implementation (why this is sensitive)
+## No workspace membership until verification
+
+**Policy:** Do **not** create **workspace membership** (`workspace_member` / org member) or other **verified-only side effects** until the user’s identity is **verified** (`emailVerified: true` from email OTP or trusted OAuth, etc.).
+
+**Why:** If a bully only gets a provisional `user` row (password, unverified) but **cannot accept an invite**, they never receive a `workspace_user_id`-style membership. When the real user verifies first, deleting the placeholder user is low-impact (no workspace rows to orphan). This pairs with **first verifier wins**.
+
+**Today in upstream Kaneo:** Better Auth defaults would require verified email to accept invitations; Kaneo **turned that off** intentionally:
+
+```467:473:apps/api/src/auth.ts
+      // Better Auth defaults this to `true`, which blocks any user whose email
+      // is not verified from accepting/rejecting an invitation. Kaneo does not
+      // verify emails on signup (and guest/anonymous users are unverified by
+      // design), so leaving the default on breaks invitation acceptance for
+      // everyone. The invitation link id is the actual secret here, so gate on
+      // that rather than on email verification.
+      requireEmailVerificationOnInvitation: false,
+```
+
+**PRSM/fork change for this initiative:**
+
+| Gate | Behavior |
+|------|----------|
+| **`requireEmailVerificationOnInvitation`** | Set to **`true`** (or equivalent hook) for normal email/password users. |
+| **Google OAuth sign-up** | User created with **`emailVerified: true`** → may accept invitation immediately after OAuth. |
+| **Email OTP sign-up / verify** | Accept invitation only **after** OTP sets `emailVerified`. |
+| **Accept invitation API/UI** | If session user unverified → block accept with clear copy (“Verify your email or continue with Google”). |
+| **Guest/anonymous** | Out of scope for PRSM prod (`DISABLE_GUEST_ACCESS`); do not weaken guest rules if enabled elsewhere. |
+
+**Flow:** Invite link → sign up (Google **or** email OTP) → **verify** → **then** `/invitation/accept/...` creates workspace member. Password-only signup without verify **cannot** join a workspace.
+
+Document exception: **first instance admin bootstrap** (no users yet) if still required by upstream.
+
+### Risks to address in implementation (why delete-unverified is sensitive)
 
 | Risk | Mitigation |
 |------|------------|
-| Bully **accepted an invite** or created workspace junk under unverified id | Deletion removes that membership; **invitation may need re-accept** for the real user. Document for PRSM ops. |
+| Bully **accepted an invite** before this gate shipped | Legacy data; ops cleanup. **After gate:** bully cannot accept until verified, so delete-unverified stays clean. |
 | Bully verified **before** victim (inbox access) | “First verifier wins” correctly gives bully the account — same as email OTP today. |
 | Partial/orphan data | Reuse Kaneo’s existing user deletion controller; add integration tests. |
 | Race: two verifications at once | Transaction or unique constraint + retry; test concurrent verify. |
@@ -109,35 +141,36 @@ This initiative **does not revert #1387**; it **displaces** unverified rows when
 - Confirm `databaseHooks.user.create` + [`assertUserRegistrationAllowed`](../../apps/api/src/utils/registration-policy.ts) allow OAuth callback with verified provider email + invitation when `DISABLE_REGISTRATION=true`.
 - Pass **`x-invitation-id`** (or query) from sign-up/sign-in Google buttons when user landed from invite link (mirror [verify-otp.tsx](../../apps/web/src/routes/auth/verify-otp.tsx) email OTP).
 
-### 2. Web — onboarding UX
+### 4. Web — onboarding UX
 
 - **Sign-up (invite):** When `hasGoogleSignIn`, show Google **alongside** email/password/OTP with **equal prominence**; copy example: “Continue with Google” (optional: “no password required for this path”).
 - **Sign-in:** Same parity; do not remove or de-emphasize password or email OTP.
 - **After Google session:** If no credential account, show **“Set a password (optional)”** in Security — reuse or extend set-password flow if missing (today UI may only expose *change* password).
 - **Errors:** Map Better Auth linking errors to actionable copy for invite mismatch vs wrong Google account.
 
-### 3. Optional set-password (if not present)
+### 5. Optional set-password (if not present)
 
 - Better Auth / Kaneo: allow **first** password set for Google-only users (creates `credential` provider) without “current password”.
 - Tests: Google-only user → set password → can sign in with email+password.
 
-### 4. Config / PRSM env
+### 6. Config / PRSM env
 
 - Document recommended PRSM combo: `hasGoogleSignIn`, invitations, optionally `DISABLE_PASSWORD_REGISTRATION` to reduce accidental password-first signup (evaluate — may stay false for admins who want password).
 - No new env required if Google client already configured ([FUNDAMENTALS](https://github.com/R4wm/kaneo/tree/prsm/sms-phone-verification/docs/prsm/FUNDAMENTALS.md) on SMS branch / prod runbook).
 
-### 5. Tests
+### 7. Tests
 
 | Case | Assert |
 |------|--------|
-| Invite + Google create | User with Google email, `emailVerified`, no credential |
+| Unverified cannot accept invite | acceptInvitation fails until verified |
+| Invite + Google create | User with Google email, `emailVerified`, no credential; can accept |
 | Invite + Google wrong email | Registration denied |
 | Google-only session | Authenticated; workspace invite accept works |
 | Set password optional | After set, credential exists; Google still works |
 | Unverified placeholder + Google verify | Old user deleted; new verified OAuth user |
 | Two verified same email | Still blocked / no silent merge (regression) |
 
-### 6. Docs
+### 8. Docs
 
 - PRSM runbook: optional member flow “Accept invite → Continue with Google **or** email OTP/password.”
 - Update email auth checklist: document Google sign-up path for Gmail invitees (peer to email).
