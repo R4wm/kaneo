@@ -37,11 +37,29 @@ flowchart TB
   Session --> Optional[Optional set password later]
 ```
 
+## `emailVerified` — required behavior
+
+**Yes.** For Google sign-up to behave like a normal member account, **`email_verified` must become `true` when Google OAuth succeeds with a verified email claim** (Gmail normally supplies `email_verified: true`).
+
+| Scenario | Expected `emailVerified` | Why it matters |
+|----------|-------------------------|----------------|
+| **New user** created on Google OAuth callback | **`true`** when Google asserts verified email | Pending invitations UI, workspace flows, and “real member” state match email OTP sign-up. |
+| **Returning user** signs in with Google again | stays `true` | No regression. |
+| **Existing local user** (password/OTP) with `emailVerified: false` tries to **link** Google | **Out of scope by default** — still blocked by `requireLocalEmailVerified` | Anti-takeover. Optional **small add-on** in this branch: on successful link when Google email matches `user.email` and provider says verified, set `emailVerified: true` (narrow Option B — document if implemented). |
+
+### Implementation
+
+1. **Prove current behavior** with an integration test: Google OAuth create (mock or test provider) → `user.emailVerified === true`.
+2. If Better Auth **does not** set the flag for Google on create, fix in [auth.ts](../../apps/api/src/auth.ts) via supported config (e.g. map profile / trusted provider verified-email handling) or a **`databaseHooks.user.create` / post-OAuth update** that sets `emailVerified: true` only when the provider verified-email claim is true — **never** for unverified provider emails.
+3. Registration policy already treats OAuth with `emailVerified: true` like other verified flows ([registration-policy.test.ts](../../tests/api-integration/auth-registration-policy.test.ts)).
+
+Do **not** globally disable `requireLocalEmailVerified` without the narrow link-time update above.
+
 ## Current behavior (baseline)
 
 - Sign-up already renders [SSOProviders](../../apps/web/src/components/auth/sso-providers.tsx) / Google on [sign-up.tsx](../../apps/web/src/routes/auth/sign-up.tsx).
 - Invite-only OAuth signup is supported when provider email matches a pending invitation ([registration-invitation.test.ts](../../tests/api-integration/registration-invitation.test.ts)).
-- Pain point on PRSM: members who **create a password account first** or hit **email OTP** flows may believe Google is broken until `email_verified` is true — UX/copy and recommended path need to steer **invited users to Google first** when appropriate.
+- Pain point on PRSM: members who **create a password account first** with `email_verified` still false see **Google link/sign-in fail** until local email is verified — UX should offer **Google sign-up on a fresh invite** (peer paths) or implement narrow link-time verify above.
 
 ## Out of scope (this initiative)
 
