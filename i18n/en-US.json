@@ -310,6 +310,7 @@
 			"createAccount": "Create Account",
 			"accepting": "Accepting...",
 			"acceptInvitation": "Accept Invitation",
+			"verifyBeforeAccept": "Verify your email with a sign-in code or Google before you can join this workspace.",
 			"goToDashboard": "Go to Dashboard",
 			"signedInAs": "Signed in as <email>{{email}}</email>",
 			"youveBeenInvited": "You've been invited!",
@@ -2979,6 +2980,7 @@
 			"error": "Failed to invite team member",
 			"createdTitle": "Invitation created",
 			"shareLinkDescription": "Share this link with {{email}} so they can join the workspace.",
+			"emailSentDescription": "We emailed an invitation link to {{email}}. Only that inbox can join using the link.",
 			"done": "Done"
 		},
 		"membersTable": {

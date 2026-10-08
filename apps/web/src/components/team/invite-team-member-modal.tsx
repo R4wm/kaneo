@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod/v4";
+import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useInviteWorkspaceUser from "@/hooks/mutations/workspace-user/use-invite-workspace-user";
 import useGetProjects from "@/hooks/queries/project/use-get-projects";
 import useGetMyProjectAccess from "@/hooks/queries/workspace-users/use-get-my-project-access";
@@ -52,7 +53,9 @@ type TeamMemberFormValues = z.infer<typeof teamMemberSchema>;
 
 function InviteTeamMemberModal({ open, onClose }: Props) {
   const { t } = useTranslation();
+  const { data: config } = useGetConfig();
   const { mutateAsync } = useInviteWorkspaceUser();
+  const hideInvitationLink = config?.signedInvitationLinks === true;
   const queryClient = useQueryClient();
   const { data: workspace } = useActiveWorkspace();
   const workspaceId = workspace?.id;
@@ -119,9 +122,8 @@ function InviteTeamMemberModal({ open, onClose }: Props) {
 
       toast.success(t("team:inviteModal.success"));
 
-      // The link is the only delivery channel when SMTP is unconfigured, so the
-      // modal stays open on it instead of closing. If the API ever stops
-      // returning an id, fall back to the previous close-on-success behaviour.
+      // The link is the only delivery channel when SMTP is unconfigured and
+      // signed invite links are off; otherwise show email-sent confirmation.
       if (invitation?.id) {
         setCreatedInvitation({ id: invitation.id, email });
         form.reset();
@@ -175,11 +177,17 @@ function InviteTeamMemberModal({ open, onClose }: Props) {
           <>
             <DialogPanel className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                {t("team:inviteModal.shareLinkDescription", {
-                  email: createdInvitation.email,
-                })}
+                {hideInvitationLink || config?.hasSmtp
+                  ? t("team:inviteModal.emailSentDescription", {
+                      email: createdInvitation.email,
+                    })
+                  : t("team:inviteModal.shareLinkDescription", {
+                      email: createdInvitation.email,
+                    })}
               </p>
-              <InvitationLinkField invitationId={createdInvitation.id} />
+              {!hideInvitationLink && !config?.hasSmtp ? (
+                <InvitationLinkField invitationId={createdInvitation.id} />
+              ) : null}
             </DialogPanel>
             <DialogFooter>
               <Button size="sm" onClick={closeModal}>

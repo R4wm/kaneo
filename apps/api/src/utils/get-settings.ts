@@ -4,6 +4,10 @@ import { isBillingEnabled } from "../billing/config";
 import { resolveFileSecret } from "./file-secret";
 import { isGithubSsoConfigured } from "./github-sso-env";
 import { isCloud } from "./is-cloud";
+import {
+  isRequireEmailVerificationOnInvitation,
+  isSignedInvitationLinksEnabled,
+} from "../invitation/signed-invitation-token";
 
 config();
 
@@ -37,6 +41,9 @@ function getSettings() {
     customOAuthAutoLogin: process.env.CUSTOM_OAUTH_AUTO_LOGIN === "true",
     customOAuthLogoutUrl: process.env.CUSTOM_OAUTH_LOGOUT_URL || null,
     billingEnabled: isBillingEnabled(),
+    signedInvitationLinks: isSignedInvitationLinksEnabled(),
+    requireEmailVerificationOnInvitation:
+      isRequireEmailVerificationOnInvitation(),
   };
 }
 

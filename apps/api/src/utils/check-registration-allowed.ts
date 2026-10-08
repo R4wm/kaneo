@@ -1,6 +1,11 @@
 import { and, eq, gt } from "drizzle-orm";
 import db from "../database";
 import { invitationTable, userTable, workspaceTable } from "../database/schema";
+import {
+  isSignedInvitationLinksEnabled,
+  looksLikeSignedInvitationToken,
+  verifyInvitationToken,
+} from "../invitation/signed-invitation-token";
 
 type RegistrationCheckResult = {
   allowed: boolean;
@@ -126,14 +131,31 @@ type InvitationDetailsResult = {
 };
 
 export async function getInvitationDetails(
-  invitationId: string,
+  routeParam: string,
 ): Promise<InvitationDetailsResult> {
   const now = new Date();
+  let invitationId = routeParam;
+  let signedPayload: ReturnType<typeof verifyInvitationToken> = null;
+
+  if (
+    isSignedInvitationLinksEnabled() &&
+    looksLikeSignedInvitationToken(routeParam)
+  ) {
+    signedPayload = verifyInvitationToken(routeParam);
+    if (!signedPayload) {
+      return {
+        valid: false,
+        error: "Invalid or expired invitation link",
+      };
+    }
+    invitationId = signedPayload.invitationId;
+  }
 
   const result = await db
     .select({
       id: invitationTable.id,
       email: invitationTable.email,
+      workspaceId: invitationTable.workspaceId,
       workspaceName: workspaceTable.name,
       inviterName: userTable.name,
       expiresAt: invitationTable.expiresAt,
@@ -154,6 +176,18 @@ export async function getInvitationDetails(
       valid: false,
       error: "Invitation not found",
     };
+  }
+
+  if (signedPayload) {
+    if (
+      signedPayload.email !== row.email.toLowerCase() ||
+      signedPayload.workspaceId !== row.workspaceId
+    ) {
+      return {
+        valid: false,
+        error: "Invalid or expired invitation link",
+      };
+    }
   }
 
   const expired = row.expiresAt < now;

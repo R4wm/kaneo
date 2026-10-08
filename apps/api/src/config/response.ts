@@ -18,5 +18,7 @@ export const configSchema = z
     customOAuthAutoLogin: z.boolean(),
     customOAuthLogoutUrl: z.string().nullable(),
     billingEnabled: z.boolean(),
+    signedInvitationLinks: z.boolean(),
+    requireEmailVerificationOnInvitation: z.boolean(),
   })
   .openapi("Config");

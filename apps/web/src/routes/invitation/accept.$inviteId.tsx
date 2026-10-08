@@ -46,12 +46,16 @@ function AcceptInvitation() {
 
   const isLoading = isSessionLoading || isInvitationLoading;
   const isSignedIn = !!session?.user;
+  const invitationIdForAccept = invitationData?.invitation?.id ?? inviteId;
+  const invitationIdForAuthFlow = invitationData?.invitation?.id ?? inviteId;
+  const needsEmailVerification =
+    session?.user?.emailVerified !== true && invitationData?.valid === true;
 
   const handleAcceptInvitation = async () => {
     setIsAccepting(true);
     try {
       const { data, error } = await authClient.organization.acceptInvitation({
-        invitationId: inviteId,
+        invitationId: invitationIdForAccept,
       });
 
       if (error) {
@@ -89,7 +93,7 @@ function AcceptInvitation() {
     const email = invitationData?.invitation?.email;
     navigate({
       to: "/auth/sign-in",
-      search: { invitationId: inviteId, email },
+      search: { invitationId: invitationIdForAuthFlow, email },
     });
   };
 
@@ -100,7 +104,7 @@ function AcceptInvitation() {
     const email = invitationData?.invitation?.email;
     navigate({
       to: "/auth/sign-up",
-      search: { invitationId: inviteId, email },
+      search: { invitationId: invitationIdForAuthFlow, email },
     });
   };
 
@@ -232,10 +236,19 @@ function AcceptInvitation() {
               </p>
             </div>
 
+            {needsEmailVerification ? (
+              <Alert variant="warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t("auth:invitation.verifyBeforeAccept")}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <div className="space-y-3 pt-2">
               <Button
                 onClick={handleAcceptInvitation}
-                disabled={isAccepting}
+                disabled={isAccepting || needsEmailVerification}
                 className="w-full"
               >
                 {isAccepting ? (

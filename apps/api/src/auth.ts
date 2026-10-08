@@ -53,8 +53,14 @@ import { handleMemberAdded } from "./workspace-members/handle-member-added";
 import { handleMemberRemoved } from "./workspace-members/handle-member-removed";
 import { handleOwnerPromoted } from "./workspace-members/handle-owner-promoted";
 import { hideInaccessibleInvitationProjects } from "./project-access/hide-inaccessible-invitation-projects";
+import {
+  buildSignedInvitationAcceptPath,
+  isRequireEmailVerificationOnInvitation,
+  isSignedInvitationLinksEnabled,
+} from "./invitation/signed-invitation-token";
 import clearEmailVerificationOnAdminChange from "./user/controllers/clear-email-verification-on-admin-change";
 import deleteAccountData from "./user/controllers/delete-account-data";
+import { displaceUnverifiedUserByEmailIfVerifiedIncoming } from "./user/controllers/displace-unverified-user";
 import prepareAdminUserRemoval from "./user/controllers/prepare-admin-user-removal";
 import { resolveAuthSecret } from "./utils/auth-secret";
 import {
@@ -464,13 +470,11 @@ export const auth = betterAuth({
             return hasInstanceAdminRole(freshUser?.role);
           }
         : true,
-      // Better Auth defaults this to `true`, which blocks any user whose email
-      // is not verified from accepting/rejecting an invitation. Kaneo does not
-      // verify emails on signup (and guest/anonymous users are unverified by
-      // design), so leaving the default on breaks invitation acceptance for
-      // everyone. The invitation link id is the actual secret here, so gate on
-      // that rather than on email verification.
-      requireEmailVerificationOnInvitation: false,
+      // PRSM: verified email before workspace join; signed invite links replace
+      // raw cuid secrets. When PRSM_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION is
+      // unset/false, keep upstream behavior for self-hosts without the flag.
+      requireEmailVerificationOnInvitation:
+        isRequireEmailVerificationOnInvitation(),
       organizationHooks: {
         beforeCreateOrganization: async ({ organization }) => {
           const check = checkWorkspaceName(organization.name ?? "");
@@ -566,6 +570,15 @@ export const auth = betterAuth({
           return { data: access };
         },
         beforeAcceptInvitation: async ({ invitation, user }) => {
+          if (
+            isRequireEmailVerificationOnInvitation() &&
+            user.emailVerified !== true
+          ) {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Verify your email (sign-in code or Google) before accepting this invitation.",
+            });
+          }
           await applyInvitationProjectAccess(invitation, user.id);
         },
         afterAcceptInvitation: async ({ member }) => {
@@ -597,7 +610,27 @@ export const auth = betterAuth({
         },
       },
       async sendInvitationEmail(data) {
-        const inviteLink = `${process.env.KANEO_CLIENT_URL}/invitation/accept/${data.id}`;
+        let acceptPath = `/invitation/accept/${data.id}`;
+        if (isSignedInvitationLinksEnabled()) {
+          const [row] = await db
+            .select({
+              workspaceId: schema.invitationTable.workspaceId,
+              expiresAt: schema.invitationTable.expiresAt,
+            })
+            .from(schema.invitationTable)
+            .where(eq(schema.invitationTable.id, data.id))
+            .limit(1);
+          if (row) {
+            acceptPath = buildSignedInvitationAcceptPath({
+              invitationId: data.id,
+              workspaceId: row.workspaceId,
+              email: data.email,
+              inviterId: data.inviter.user.id,
+              exp: Math.floor(row.expiresAt.getTime() / 1000),
+            });
+          }
+        }
+        const inviteLink = `${process.env.KANEO_CLIENT_URL}${acceptPath}`;
         const locale = await getUserLocale(data.email);
         const copy = getWorkspaceInvitationEmailCopy(locale);
 
@@ -722,16 +755,21 @@ export const auth = betterAuth({
       },
       create: {
         before: async (user, ctx) => {
-          await assertUserRegistrationAllowed(
-            user as Partial<UserWithAnonymous> & { email: string },
-            {
-              path: ctx?.path,
-              invitationId:
-                ctx?.body?.invitationId ||
-                ctx?.query?.invitationId ||
-                ctx?.headers?.get("x-invitation-id"),
-            },
+          const registrationUser = user as Partial<UserWithAnonymous> & {
+            email: string;
+            emailVerified?: boolean;
+          };
+          await displaceUnverifiedUserByEmailIfVerifiedIncoming(
+            registrationUser.email,
+            registrationUser.emailVerified,
           );
+          await assertUserRegistrationAllowed(registrationUser, {
+            path: ctx?.path,
+            invitationId:
+              ctx?.body?.invitationId ||
+              ctx?.query?.invitationId ||
+              ctx?.headers?.get("x-invitation-id"),
+          });
         },
         after: async (user) => {
           // The anonymous() plugin creates ephemeral users for guest
