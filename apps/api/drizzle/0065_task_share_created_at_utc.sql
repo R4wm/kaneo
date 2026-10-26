@@ -1,0 +1,1 @@
+ALTER TABLE "task_share" ALTER COLUMN "created_at" SET DEFAULT (now() AT TIME ZONE 'utc');
