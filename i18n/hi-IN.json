@@ -2837,7 +2837,8 @@
 			"title": "Webhooks",
 			"url": "URL",
 			"save": "Save"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -4098,7 +4099,11 @@
 			"cancelInviteSuccess": "निमंत्रण सफलतापूर्वक रद्द किया गया",
 			"cancelInviteError": "निमंत्रण रद्द करने में विफल",
 			"roleUpdateSuccess": "भूमिका अपडेट की गई",
-			"roleUpdateError": "भूमिका अपडेट करने में विफल"
+			"roleUpdateError": "भूमिका अपडेट करने में विफल",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",

@@ -4,6 +4,7 @@ import {
   EllipsisIcon,
   MailIcon,
   PencilIcon,
+  SendIcon,
   ShieldIcon,
   TrashIcon,
   MailXIcon,
@@ -14,6 +15,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import useCancelInvitation from "@/hooks/mutations/workspace-user/use-cancel-invitation";
 import useDeleteWorkspaceUser from "@/hooks/mutations/workspace-user/use-delete-workspace-user";
+import useInviteWorkspaceUser from "@/hooks/mutations/workspace-user/use-invite-workspace-user";
 import useUpdateWorkspaceUserRole from "@/hooks/mutations/workspace-user/use-update-workspace-user-role";
 import useWorkspaceRoles from "@/hooks/queries/workspace/use-workspace-roles";
 import useGetMyProjectAccess from "@/hooks/queries/workspace-users/use-get-my-project-access";
@@ -64,6 +66,7 @@ import {
 } from "./project-access/project-access-value";
 import { findMemberProjectAccess } from "./project-access/find-member-project-access";
 import { getInvitationProjectAccess } from "./project-access/get-invitation-project-access";
+import { toInvitationResendRequest } from "./project-access/to-invitation-resend-request";
 
 type Props = {
   workspaceId: string;
@@ -122,6 +125,8 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
     useDeleteWorkspaceUser();
   const { mutateAsync: cancelInvitation, isPending: isCancelling } =
     useCancelInvitation();
+  const { mutateAsync: resendInvitation, isPending: isResending } =
+    useInviteWorkspaceUser();
   const { mutateAsync: updateMemberRole } = useUpdateWorkspaceUserRole();
   const { copy: copyInvitationLink } = useCopyInvitationLink();
   const { data: allWorkspaceRoles = [] } = useWorkspaceRoles(workspaceId);
@@ -221,6 +226,28 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
       );
     } finally {
       setInvitationToCancel(null);
+    }
+  };
+
+  const handleResendInvitation = async (
+    invitation: WorkspaceUserInvitation,
+  ) => {
+    const request = toInvitationResendRequest(invitation);
+    if (!request) {
+      toast.error(t("team:membersTable.resendInviteUnavailable"));
+      return;
+    }
+    try {
+      await resendInvitation({ workspaceId, ...request, resend: true });
+      toast.success(t("team:membersTable.resendInviteSuccess"), {
+        icon: SendIcon,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("team:membersTable.resendInviteError"),
+      );
     }
   };
 
@@ -482,6 +509,13 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
                       >
                         <CopyIcon className="size-4" />
                         {t("team:invitations.copyLink")}
+                      </MenuItem>
+                      <MenuItem
+                        disabled={isResending}
+                        onClick={() => handleResendInvitation(invitation)}
+                      >
+                        <SendIcon className="size-4" />
+                        {t("team:membersTable.resendInvitation")}
                       </MenuItem>
                       <MenuItem
                         onClick={() => setInvitationToCancel(invitation)}

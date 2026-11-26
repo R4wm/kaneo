@@ -2788,7 +2788,8 @@
 			"title": "Webhooks",
 			"url": "URL",
 			"save": "Save"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -4022,7 +4023,11 @@
 			"cancelInviteSuccess": "邀請已取消",
 			"cancelInviteError": "無法取消邀請",
 			"roleUpdateSuccess": "角色已更新",
-			"roleUpdateError": "無法更新角色"
+			"roleUpdateError": "無法更新角色",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",

@@ -47,6 +47,12 @@ vi.mock("@/hooks/mutations/workspace-user/use-cancel-invitation", () => ({
   default: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
+const resendInvitation = vi.fn();
+
+vi.mock("@/hooks/mutations/workspace-user/use-invite-workspace-user", () => ({
+  default: () => ({ mutateAsync: resendInvitation, isPending: false }),
+}));
+
 vi.mock("@/hooks/mutations/workspace-user/use-delete-workspace-user", () => ({
   default: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
@@ -135,6 +141,8 @@ const pendingInvitation = {
   role: "member",
   status: "pending",
   expiresAt: "2026-09-01T00:00:00.000Z",
+  projectAccess: "all",
+  projectIds: [],
 } as unknown as WorkspaceUserInvitation;
 
 describe("MembersTable pending invitation row menu", () => {
@@ -212,6 +220,105 @@ describe("MembersTable pending invitation row menu", () => {
         name: "team:membersTable.ariaInvitationActions",
       }),
     ).toBeNull();
+  });
+});
+
+describe("MembersTable resend invitation", () => {
+  const openResend = async (invitation: WorkspaceUserInvitation) => {
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        invitations={[invitation]}
+        users={[] as WorkspaceUser[]}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "team:membersTable.ariaInvitationActions",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", {
+        name: "team:membersTable.resendInvitation",
+      }),
+    );
+  };
+
+  it("resends with the invitation's stored role and selected projects", async () => {
+    resendInvitation.mockResolvedValue({ id: "invite-2" });
+
+    await openResend({
+      ...pendingInvitation,
+      role: "admin",
+      projectAccess: "selected",
+      projectIds: ["project-a"],
+    } as unknown as WorkspaceUserInvitation);
+
+    await waitFor(() =>
+      expect(resendInvitation).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        email: "invitee@example.com",
+        role: "admin",
+        projectAccess: "selected",
+        projectIds: ["project-a"],
+        resend: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(success).toHaveBeenCalledWith(
+        "team:membersTable.resendInviteSuccess",
+      ),
+    );
+  });
+
+  it("resends all-project invitations as all-project invitations", async () => {
+    resendInvitation.mockResolvedValue({ id: "invite-1" });
+
+    await openResend(pendingInvitation);
+
+    await waitFor(() =>
+      expect(resendInvitation).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        email: "invitee@example.com",
+        role: "member",
+        projectAccess: "all",
+        projectIds: [],
+        resend: true,
+      }),
+    );
+  });
+
+  it("refuses to resend when the stored project access is missing", async () => {
+    const {
+      projectAccess: _a,
+      projectIds: _i,
+      ...withoutAccess
+    } = pendingInvitation as unknown as Record<string, unknown>;
+
+    await openResend(withoutAccess as unknown as WorkspaceUserInvitation);
+
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "team:membersTable.resendInviteUnavailable",
+      ),
+    );
+    expect(resendInvitation).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error and no success toast when resending fails", async () => {
+    resendInvitation.mockRejectedValue(
+      new Error("The invitation email could not be sent."),
+    );
+
+    await openResend(pendingInvitation);
+
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "The invitation email could not be sent.",
+      ),
+    );
+    expect(success).not.toHaveBeenCalled();
   });
 });
 
