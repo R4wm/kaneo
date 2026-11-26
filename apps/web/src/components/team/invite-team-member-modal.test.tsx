@@ -34,7 +34,9 @@ vi.mock("react-i18next", async (importOriginal) => ({
         ? "The invitation email could not be sent."
         : key === "settings:invitationAlreadyPending"
           ? "This person already has a pending invitation."
-          : key,
+          : key === "settings:invitationResendMismatch"
+            ? "The pending invitation has different access."
+            : key,
   }),
 }));
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
@@ -105,6 +107,25 @@ describe("invitation email delivery errors", () => {
       });
     },
   );
+  it("explains a resend the server refused because the stored scope differs", async () => {
+    inviteMember.mockResolvedValue({
+      data: null,
+      error: { code: "INVITATION_RESEND_MISMATCH", message: "Conflict" },
+    });
+    const { result } = renderHook(useInviteWorkspaceUser, { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          workspaceId: "workspace",
+          email: "member@example.com",
+          role: "member",
+          projectAccess: "all",
+          projectIds: [],
+          resend: true,
+        }),
+      ).rejects.toThrow("The pending invitation has different access.");
+    });
+  });
   it("explains a duplicate pending invitation instead of the raw provider error", async () => {
     inviteMember.mockResolvedValue({
       data: null,

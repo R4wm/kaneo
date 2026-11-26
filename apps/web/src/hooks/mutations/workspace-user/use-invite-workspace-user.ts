@@ -38,6 +38,9 @@ function useInviteWorkspaceUser() {
       if (error?.code === "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION") {
         throw new Error(t("settings:invitationAlreadyPending"));
       }
+      if (error?.code === "INVITATION_RESEND_MISMATCH") {
+        throw new Error(t("settings:invitationResendMismatch"));
+      }
       if (error) {
         throw new Error(error.message || "Failed to invite workspace member");
       }

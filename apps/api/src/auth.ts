@@ -79,6 +79,7 @@ import { normalizeInvitationRole } from "./workspace-members/normalize-invitatio
 import { hideInaccessibleInvitationProjects } from "./project-access/hide-inaccessible-invitation-projects";
 import assertManagedProfileUnchanged from "./user/controllers/assert-managed-profile-unchanged";
 import { hideInvitationsFromNonInviters } from "./utils/hide-invitations-from-non-inviters";
+import { assertInvitationResendMatches } from "./utils/assert-invitation-resend-matches";
 import { assertOwnerInvitationResendAllowed } from "./utils/assert-owner-invitation-resend-allowed";
 import {
   assertNativeAuthApiKeyAllowed,
@@ -974,6 +975,13 @@ export const auth = betterAuth({
                 viewer.user.id,
                 workspaceId,
                 ctx.body.email,
+              );
+            }
+            if (typeof workspaceId === "string") {
+              await assertInvitationResendMatches(
+                workspaceId,
+                ctx.body.email,
+                ctx.body,
               );
             }
           }
