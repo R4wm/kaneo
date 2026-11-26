@@ -2406,6 +2406,7 @@
 		},
 		"invitationEmailFailed": "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
 		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list.",
+		"invitationServerError": "The server didn't confirm that the invitation email was sent. If the invitation is listed under members, use Resend invitation to try again.",
 		"invitationResendMismatch": "This person's pending invitation has a different role or project access than the one you chose. Refresh the members list, cancel the invitation you don't want, then resend.",
 		"billing": {
 			"pageTitle": "Billing",

@@ -2839,7 +2839,8 @@
 			"save": "Save"
 		},
 		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list.",
-		"invitationResendMismatch": "This person's pending invitation has a different role or project access than the one you chose. Refresh the members list, cancel the invitation you don't want, then resend."
+		"invitationResendMismatch": "This person's pending invitation has a different role or project access than the one you chose. Refresh the members list, cancel the invitation you don't want, then resend.",
+		"invitationServerError": "The server didn't confirm that the invitation email was sent. If the invitation is listed under members, use Resend invitation to try again."
 	},
 	"navigation": {
 		"commandPalette": {
