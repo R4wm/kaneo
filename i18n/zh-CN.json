@@ -2316,7 +2316,8 @@
 		"shared": {
 			"autosave": "更改会自动保存"
 		},
-		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list.",
+		"invitationResendMismatch": "This person's pending invitation has a different role or project access than the one you chose. Refresh the members list, cancel the invitation you don't want, then resend."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -3476,7 +3477,9 @@
 			"resendInvitation": "Resend Invitation",
 			"resendInviteError": "Failed to resend invitation",
 			"resendInviteSuccess": "Invitation email sent again",
-			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again.",
+			"resendInviteAmbiguous": "There's more than one pending invitation for this email. Cancel the one you don't need, then resend.",
+			"resendInviteNoEmail": "Email isn't set up on this instance, so invitations can't be sent by email. Use Copy link to share the invitation instead."
 		},
 		"projectAccess": {
 			"allProjects": "所有项目",

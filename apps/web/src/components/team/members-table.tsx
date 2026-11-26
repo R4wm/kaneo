@@ -17,6 +17,7 @@ import useCancelInvitation from "@/hooks/mutations/workspace-user/use-cancel-inv
 import useDeleteWorkspaceUser from "@/hooks/mutations/workspace-user/use-delete-workspace-user";
 import useInviteWorkspaceUser from "@/hooks/mutations/workspace-user/use-invite-workspace-user";
 import useUpdateWorkspaceUserRole from "@/hooks/mutations/workspace-user/use-update-workspace-user-role";
+import useGetConfig from "@/hooks/queries/config/use-get-config";
 import useWorkspaceRoles from "@/hooks/queries/workspace/use-workspace-roles";
 import useGetMyProjectAccess from "@/hooks/queries/workspace-users/use-get-my-project-access";
 import useGetWorkspaceProjectAccess from "@/hooks/queries/workspace-users/use-get-workspace-project-access";
@@ -129,6 +130,9 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
     useInviteWorkspaceUser();
   const { mutateAsync: updateMemberRole } = useUpdateWorkspaceUserRole();
   const { copy: copyInvitationLink } = useCopyInvitationLink();
+  const { data: config } = useGetConfig();
+  // Without SMTP the API reports success but sends nothing.
+  const canEmailInvitations = config?.hasSmtp === true;
   const { data: allWorkspaceRoles = [] } = useWorkspaceRoles(workspaceId);
   const { canManageTeam, canUpdateMembers, canRemoveMembers, canInviteUsers } =
     useWorkspacePermission();
@@ -232,6 +236,22 @@ function MembersTable({ workspaceId, invitations, users }: Props) {
   const handleResendInvitation = async (
     invitation: WorkspaceUserInvitation,
   ) => {
+    if (!canEmailInvitations) {
+      toast.info(t("team:membersTable.resendInviteNoEmail"));
+      return;
+    }
+    // The API resends by email, not by row, so with two pending rows for one
+    // address it could extend the other invitation instead of this one.
+    const email = invitation.email.toLowerCase();
+    if (
+      pendingInvitations.some(
+        (other) =>
+          other.id !== invitation.id && other.email.toLowerCase() === email,
+      )
+    ) {
+      toast.error(t("team:membersTable.resendInviteAmbiguous"));
+      return;
+    }
     const request = toInvitationResendRequest(invitation);
     if (!request) {
       toast.error(t("team:membersTable.resendInviteUnavailable"));

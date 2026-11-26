@@ -22,6 +22,7 @@ import MembersTable from "./members-table";
 const copyToClipboard = vi.fn();
 const success = vi.fn();
 const error = vi.fn();
+const info = vi.fn();
 
 vi.mock("@/lib/copy-to-clipboard", () => ({
   copyToClipboard: (text: string) => copyToClipboard(text),
@@ -31,6 +32,7 @@ vi.mock("@/lib/toast", () => ({
   toast: {
     success: (msg: string) => success(msg),
     error: (msg: string) => error(msg),
+    info: (msg: string) => info(msg),
   },
 }));
 
@@ -63,6 +65,14 @@ vi.mock(
     default: () => ({ mutateAsync: vi.fn() }),
   }),
 );
+
+const config = vi.fn<() => { hasSmtp: boolean } | undefined>(() => ({
+  hasSmtp: true,
+}));
+
+vi.mock("@/hooks/queries/config/use-get-config", () => ({
+  default: () => ({ data: config() }),
+}));
 
 vi.mock("@/hooks/queries/workspace/use-workspace-roles", () => ({
   default: () => ({ data: [] }),
@@ -128,6 +138,7 @@ vi.mock("../providers/auth-provider/hooks/use-auth", () => ({
 
 beforeEach(() => {
   canInviteUsers.mockReturnValue(true);
+  config.mockReturnValue({ hasSmtp: true });
 });
 
 afterEach(() => {
@@ -224,6 +235,19 @@ describe("MembersTable pending invitation row menu", () => {
 });
 
 describe("MembersTable resend invitation", () => {
+  const clickResend = async (row: number) => {
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: "team:membersTable.ariaInvitationActions",
+      })[row],
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", {
+        name: "team:membersTable.resendInvitation",
+      }),
+    );
+  };
+
   const openResend = async (invitation: WorkspaceUserInvitation) => {
     render(
       <MembersTable
@@ -232,16 +256,7 @@ describe("MembersTable resend invitation", () => {
         users={[] as WorkspaceUser[]}
       />,
     );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "team:membersTable.ariaInvitationActions",
-      }),
-    );
-    fireEvent.click(
-      await screen.findByRole("menuitem", {
-        name: "team:membersTable.resendInvitation",
-      }),
-    );
+    await clickResend(0);
   };
 
   it("resends with the invitation's stored role and selected projects", async () => {
@@ -305,6 +320,85 @@ describe("MembersTable resend invitation", () => {
     expect(resendInvitation).not.toHaveBeenCalled();
     expect(success).not.toHaveBeenCalled();
   });
+
+  it("refuses to resend either row when two pending invitations share an email", async () => {
+    const expiredScoped = {
+      ...pendingInvitation,
+      id: "invite-old",
+      email: "Invitee@Example.com",
+      role: "member",
+      projectAccess: "selected",
+      projectIds: ["project-a"],
+      expiresAt: "2026-01-01T00:00:00.000Z",
+    } as unknown as WorkspaceUserInvitation;
+    const liveAdmin = {
+      ...pendingInvitation,
+      id: "invite-new",
+      role: "admin",
+      projectAccess: "all",
+      projectIds: [],
+    } as unknown as WorkspaceUserInvitation;
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        invitations={[expiredScoped, liveAdmin]}
+        users={[] as WorkspaceUser[]}
+      />,
+    );
+
+    await clickResend(0);
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "team:membersTable.resendInviteAmbiguous",
+      ),
+    );
+    await clickResend(1);
+    await waitFor(() => expect(error).toHaveBeenCalledTimes(2));
+
+    expect(resendInvitation).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
+  });
+
+  it("still resends when the other invitation for that email is cancelled", async () => {
+    resendInvitation.mockResolvedValue({ id: "invite-1" });
+    const cancelled = {
+      ...pendingInvitation,
+      id: "invite-cancelled",
+      status: "canceled",
+    } as unknown as WorkspaceUserInvitation;
+    render(
+      <MembersTable
+        workspaceId="workspace-1"
+        invitations={[cancelled, pendingInvitation]}
+        users={[] as WorkspaceUser[]}
+      />,
+    );
+
+    await clickResend(0);
+
+    await waitFor(() => expect(resendInvitation).toHaveBeenCalledTimes(1));
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["SMTP is not configured", { hasSmtp: false }],
+    ["the instance config has not loaded", undefined],
+  ])(
+    "points to Copy link instead of resending when %s",
+    async (_label, value) => {
+      config.mockReturnValue(value);
+
+      await openResend(pendingInvitation);
+
+      await waitFor(() =>
+        expect(info).toHaveBeenCalledWith(
+          "team:membersTable.resendInviteNoEmail",
+        ),
+      );
+      expect(resendInvitation).not.toHaveBeenCalled();
+      expect(success).not.toHaveBeenCalled();
+    },
+  );
 
   it("shows the server error and no success toast when resending fails", async () => {
     resendInvitation.mockRejectedValue(

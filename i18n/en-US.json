@@ -2180,6 +2180,7 @@
 		},
 		"invitationEmailFailed": "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
 		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list.",
+		"invitationResendMismatch": "This person's pending invitation has a different role or project access than the one you chose. Refresh the members list, cancel the invitation you don't want, then resend.",
 		"billing": {
 			"pageTitle": "Billing",
 			"subtitle": "Your plan for {{workspace}}.",
@@ -3536,6 +3537,8 @@
 			"resendInviteSuccess": "Invitation email sent again",
 			"resendInviteError": "Failed to resend invitation",
 			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again.",
+			"resendInviteAmbiguous": "There's more than one pending invitation for this email. Cancel the one you don't need, then resend.",
+			"resendInviteNoEmail": "Email isn't set up on this instance, so invitations can't be sent by email. Use Copy link to share the invitation instead.",
 			"roleUpdateSuccess": "Role updated",
 			"roleUpdateError": "Failed to update role"
 		},

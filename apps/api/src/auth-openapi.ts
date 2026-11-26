@@ -528,7 +528,7 @@ export function organizationRoutes(registry: OpenAPIHono["openAPIRegistry"]) {
               }),
               resend: z.boolean().optional().openapi({
                 description:
-                  "Resend the invitation email, if the user is already invited. Eg: true",
+                  "Resend the invitation email, if the user is already invited. Only the role and any projectAccess/projectIds you send are compared against the pending invitation, and a mismatch returns 409. Eg: true",
               }),
               teamId: z.union([z.string(), z.array(z.string())]).optional(),
               projectAccess: z.enum(["all", "selected"]).optional().openapi({
@@ -545,6 +545,18 @@ export function organizationRoutes(registry: OpenAPIHono["openAPIRegistry"]) {
       },
     },
     responses: {
+      409: {
+        description:
+          "Resend refused: the pending invitation for this email has a different role or project access than the request",
+        content: {
+          "application/json": {
+            schema: z.object({
+              code: z.literal("INVITATION_RESEND_MISMATCH"),
+              message: z.string(),
+            }),
+          },
+        },
+      },
       502: {
         description: "Invitation saved, but email delivery failed",
         content: {
