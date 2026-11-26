@@ -73,6 +73,7 @@ describe("sendMailWithRetry", () => {
   });
 
   it("retries a transient DNS failure and succeeds", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const sleep = vi.fn(async () => {});
     const send = vi
       .fn()
@@ -83,6 +84,12 @@ describe("sendMailWithRetry", () => {
     await expect(sendMailWithRetry(send, { sleep })).resolves.toBe("sent");
     expect(send).toHaveBeenCalledTimes(3);
     expect(sleep.mock.calls).toEqual([[1_000], [3_000]]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenLastCalledWith(
+      "Retrying email after a connection failure",
+      { code: "EDNS", attempt: 3, delayMs: 3_000 },
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("smtp failure");
   });
 
   it("gives up after three attempts with the last error", async () => {

@@ -1,3 +1,5 @@
+import { getSmtpErrorDetails } from "./smtp-error-details";
+
 const CONNECTION_ERROR_CODES = new Set([
   "ECONNECTION",
   "EDNS",
@@ -49,6 +51,12 @@ export async function sendMailWithRetry<T>(
     } catch (error) {
       const delay = delaysMs[attempt];
       if (delay === undefined || !isRetryableSmtpError(error)) throw error;
+      // Only the error category: SMTP errors can carry addresses or content.
+      console.warn("Retrying email after a connection failure", {
+        ...getSmtpErrorDetails(error),
+        attempt: attempt + 2,
+        delayMs: delay,
+      });
       await sleep(delay);
     }
   }
