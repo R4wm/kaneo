@@ -41,6 +41,11 @@ function useInviteWorkspaceUser() {
       if (error?.code === "INVITATION_RESEND_MISMATCH") {
         throw new Error(t("settings:invitationResendMismatch"));
       }
+      // A proxy in front of the API (e.g. a CDN) can replace a 5xx body, so
+      // the code is gone. The invitation may have been saved.
+      if (error && !error.code && (error.status ?? 0) >= 500) {
+        throw new Error(t("settings:invitationServerError"));
+      }
       if (error) {
         throw new Error(error.message || "Failed to invite workspace member");
       }

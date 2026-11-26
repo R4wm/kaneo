@@ -36,7 +36,9 @@ vi.mock("react-i18next", async (importOriginal) => ({
           ? "This person already has a pending invitation."
           : key === "settings:invitationResendMismatch"
             ? "The pending invitation has different access."
-            : key,
+            : key === "settings:invitationServerError"
+              ? "The server didn't confirm the email was sent."
+              : key,
   }),
 }));
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
@@ -107,6 +109,42 @@ describe("invitation email delivery errors", () => {
       });
     },
   );
+  it.each([502, 503, 504])(
+    "explains a %s whose body a proxy replaced, without a code or message",
+    async (status) => {
+      inviteMember.mockResolvedValue({
+        data: null,
+        error: { status, statusText: "Bad Gateway" },
+      });
+      const { result } = renderHook(useInviteWorkspaceUser, { wrapper });
+      await act(async () => {
+        await expect(
+          result.current.mutateAsync({
+            workspaceId: "workspace",
+            email: "member@example.com",
+            role: "member",
+            resend: true,
+          }),
+        ).rejects.toThrow("The server didn't confirm the email was sent.");
+      });
+    },
+  );
+  it("keeps the server's own message for a 4xx without a known code", async () => {
+    inviteMember.mockResolvedValue({
+      data: null,
+      error: { status: 400, message: "Some validation problem" },
+    });
+    const { result } = renderHook(useInviteWorkspaceUser, { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          workspaceId: "workspace",
+          email: "member@example.com",
+          role: "member",
+        }),
+      ).rejects.toThrow("Some validation problem");
+    });
+  });
   it("explains a resend the server refused because the stored scope differs", async () => {
     inviteMember.mockResolvedValue({
       data: null,
