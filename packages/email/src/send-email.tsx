@@ -5,6 +5,7 @@ import * as nodemailer from "nodemailer";
 import { type EmailSubject, loadBrandName } from "./brand";
 import { BrandNameContext } from "./components/brand-name-context";
 import { instanceHost } from "./components/instance-host";
+import { sendMailWithRetry } from "./send-mail-with-retry";
 import { getSmtpTransportOptions, isSmtpConfigured } from "./smtp-config";
 import { getSmtpErrorDetails } from "./smtp-error-details";
 import AccountPasswordEmail, {
@@ -56,11 +57,13 @@ export const sendMagicLinkEmail = async (
     subject,
   );
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
   } catch (error) {
     console.error("Error sending magic link email", error);
   }
@@ -76,11 +79,13 @@ export const sendOtpEmail = async (
     subject,
   );
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
   } catch (error) {
     console.error("Error sending OTP email", error);
   }
@@ -102,11 +107,13 @@ export const sendPasswordResetEmail = async (
     return;
   }
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
   } catch (error) {
     console.error(
       "Error sending password reset email",
@@ -134,11 +141,13 @@ export const sendWorkspaceInvitationEmail = async (
       WorkspaceInvitationEmail({ instance: instanceHost(), ...data, to }),
       subject,
     );
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
     return { success: true };
   } catch (error) {
     console.error("Error sending workspace invitation email", error);
@@ -157,11 +166,13 @@ export const sendNotificationEmail = async (
 
   try {
     const email = await render(NotificationEmail(data), subject);
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
     return { success: true };
   } catch (error) {
     console.error("Error sending notification email", error);
@@ -179,11 +190,13 @@ export const sendTrialReminderEmail = async (
     subject,
   );
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
   } catch (error) {
     console.error("Error sending trial reminder email", error);
   }
@@ -204,11 +217,13 @@ async function sendAdministratorEmail(
   }
   try {
     const email = await render(template, subject);
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      ...email,
-    });
+    await sendMailWithRetry(() =>
+      transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        ...email,
+      }),
+    );
     return { success: true };
   } catch (error) {
     console.error(`Error sending ${kind} email`, getSmtpErrorDetails(error));
