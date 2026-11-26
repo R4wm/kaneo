@@ -4,17 +4,16 @@ import db, { schema } from "../database";
 import { invitationResendMatches } from "./invitation-resend-matches";
 
 // Better Auth resends by email: it extends the first unexpired pending
-// invitation for that address and ignores the request's role and access.
-// Refuse when that stored invitation differs from what the caller asked to
-// resend, so a stale or ambiguous client cannot extend a different invitation.
+// invitation for that address and ignores the request's access. Refuse when
+// that stored access differs from what the caller asked to resend, so a stale
+// or ambiguous client cannot extend an invitation with different access.
 export async function assertInvitationResendMatches(
   workspaceId: string,
   email: string,
-  request: { role?: unknown; projectAccess?: unknown; projectIds?: unknown },
+  request: { projectAccess?: unknown; projectIds?: unknown },
 ): Promise<void> {
   const live = await db
     .select({
-      role: schema.invitationTable.role,
       projectAccess: schema.invitationTable.projectAccess,
       projectIds: schema.invitationTable.projectIds,
     })
@@ -32,7 +31,7 @@ export async function assertInvitationResendMatches(
     throw new APIError("CONFLICT", {
       code: "INVITATION_RESEND_MISMATCH",
       message:
-        "The pending invitation for this email has a different role or project access than the request.",
+        "The pending invitation for this email has different project access than the request.",
     });
   }
 }

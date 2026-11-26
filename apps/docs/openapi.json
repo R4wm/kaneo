@@ -8853,7 +8853,7 @@
                   },
                   "resend": {
                     "type": "boolean",
-                    "description": "Resend the invitation email, if the user is already invited. Only the role and any projectAccess/projectIds you send are compared against the pending invitation, and a mismatch returns 409. Eg: true"
+                    "description": "Resend the invitation email, if the user is already invited. The stored role is kept. Any projectAccess/projectIds you send are compared against the pending invitation, and a mismatch returns 409. Eg: true"
                   },
                   "teamId": {
                     "anyOf": [
@@ -8967,7 +8967,7 @@
             }
           },
           "409": {
-            "description": "Resend refused: the pending invitation for this email has a different role or project access than the request",
+            "description": "Resend refused: the pending invitation for this email has different project access than the request",
             "content": {
               "application/json": {
                 "schema": {

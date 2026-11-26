@@ -120,11 +120,12 @@ describe("invitation resend scope", () => {
     expect(await invitationsFor(workspaceId)).toHaveLength(2);
   });
 
-  it("refuses a resend that asks for a different role with the same access", async () => {
+  it("keeps the stored role when a resend sends a different role with the same access", async () => {
     vi.spyOn(email, "sendWorkspaceInvitationEmail").mockResolvedValue({
       success: true,
     });
-    const { cookie, admin } = await expiredScopedAndLiveAdminInvitations();
+    const { cookie, admin, live, workspaceId } =
+      await expiredScopedAndLiveAdminInvitations();
 
     const response = await post(
       "/organization/invite-member",
@@ -132,7 +133,11 @@ describe("invitation resend scope", () => {
       cookie,
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
+    const after = (await invitationsFor(workspaceId)).find(
+      (invitation) => invitation.id === live.id,
+    );
+    expect(after).toMatchObject({ role: "admin", projectAccess: "all" });
   });
 
   it("resends the live invitation when the request matches its stored scope", async () => {
