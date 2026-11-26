@@ -59,7 +59,11 @@ export function createBaseExtensions({
     ...extra,
     TaskList,
     image.configure({
-      HTMLAttributes: { class: "kaneo-editor-image", loading: "lazy" },
+      HTMLAttributes: {
+        class: "kaneo-editor-image",
+        loading: "lazy",
+        referrerpolicy: "no-referrer",
+      },
     }),
     taskItem.configure({ nested: true }),
     Placeholder.configure({ placeholder }),

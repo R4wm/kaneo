@@ -74,7 +74,12 @@ import { assertProjectAccess } from "./project-access/assert-project-access";
 import { getPublicProject } from "./project/controllers/get-public-project";
 import { initializeScheduler, shutdownScheduler } from "./scheduler";
 import search from "./search";
+import taskShare, { publicSharedTask } from "./shared-task";
 import slackIntegration from "./slack-integration";
+import {
+  buildContentDisposition,
+  isSafeInlineAssetType,
+} from "./storage/asset-response";
 import { getPrivateObject } from "./storage/s3";
 import task from "./task";
 import {
@@ -155,41 +160,6 @@ type ApiVariables = {
     workspaceId?: string;
   };
 };
-
-const SAFE_INLINE_ASSET_TYPES = new Set([
-  "image/apng",
-  "image/avif",
-  "image/gif",
-  "image/heic",
-  "image/heif",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-]);
-
-function buildContentDisposition(filename: string, inline: boolean) {
-  const normalized = filename
-    .normalize("NFC")
-    .replace(/[\r\n"]/g, "")
-    .trim();
-  const safeFilename = normalized || "file";
-  const asciiFallback =
-    safeFilename
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[\\/]/g, "-")
-      .replace(/[^\x20-\x7E]+/g, "_")
-      .replace(/\s+/g, " ")
-      .trim() || "file";
-  const encodedFilename = encodeURIComponent(safeFilename).replace(
-    /['()*]/g,
-    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-
-  const disposition = inline ? "inline" : "attachment";
-  return `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`;
-}
 
 export function createApp() {
   const app = new Hono<AppVariables>();
@@ -441,6 +411,7 @@ export function createApp() {
     );
 
   api.route("/calendar-feed", publicCalendarFeed);
+  const sharedTaskApi = api.route("/shared-task", publicSharedTask);
 
   api.post("/github-integration/webhook", handleGithubWebhookRoute);
 
@@ -572,7 +543,7 @@ export function createApp() {
             .toLowerCase()
             .split(";")[0]
             ?.trim() ?? "";
-        const inline = SAFE_INLINE_ASSET_TYPES.has(storedContentType);
+        const inline = isSafeInlineAssetType(storedContentType);
 
         return new Response(object.body as BodyInit, {
           headers: {
@@ -816,6 +787,7 @@ export function createApp() {
   const projectApi = api.route("/project", project);
   const calendarFeedApi = api.route("/calendar-feed", calendarFeed);
   const taskApi = api.route("/task", task);
+  const taskShareApi = api.route("/task-share", taskShare);
   const columnApi = api.route("/column", column);
   const activityApi = api.route("/activity", activity);
   const commentApi = api.route("/comment", comment);
@@ -1006,6 +978,8 @@ export function createApp() {
     mattermostIntegrationApi,
     slackIntegrationApi,
     taskApi,
+    taskShareApi,
+    sharedTaskApi,
     taskRelationApi,
     telegramIntegrationApi,
     timeEntryApi,
@@ -1141,6 +1115,8 @@ const {
   searchApi,
   slackIntegrationApi,
   taskApi,
+  taskShareApi,
+  sharedTaskApi,
   taskRelationApi,
   telegramIntegrationApi,
   timeEntryApi,
@@ -1169,6 +1145,8 @@ export type AppType =
   | typeof projectApi
   | typeof calendarFeedApi
   | typeof taskApi
+  | typeof taskShareApi
+  | typeof sharedTaskApi
   | typeof columnApi
   | typeof activityApi
   | typeof commentApi
