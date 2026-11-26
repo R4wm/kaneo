@@ -266,11 +266,15 @@ describe("API integration: shared tasks", () => {
   });
 
   it("strips @mention widgets from shared descriptions", async () => {
-    const { app, managePath, member, task } = await setup();
+    const { app, managePath, task } = await setup();
+    // Not the assignee: the shared page shows the assignee's name on purpose.
+    const { user: mentioned } = await createWorkspaceMember({
+      userName: "Mentioned Person",
+    });
     await db
       .update(schema.taskTable)
       .set({
-        description: `<kaneo-mention id="${member.user.id}">@${member.user.name}</kaneo-mention> please review`,
+        description: `<kaneo-mention id="${mentioned.id}">@${mentioned.name}</kaneo-mention> please review`,
       })
       .where(eq(schema.taskTable.id, task.id));
     const share = (await (
@@ -282,8 +286,8 @@ describe("API integration: shared tasks", () => {
     const serialized = JSON.stringify(shared);
 
     expect(shared.description).toBe(" please review");
-    expect(serialized).not.toContain(member.user.id);
-    expect(serialized).not.toContain(member.user.name);
+    expect(serialized).not.toContain(mentioned.id);
+    expect(serialized).not.toContain("Mentioned Person");
   });
 
   it("revokes the summary and its images and issues a new token when recreated", async () => {
