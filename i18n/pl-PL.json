@@ -1043,7 +1043,11 @@
 			"cancelInviteSuccess": "Zaproszenie zostało anulowane",
 			"cancelInviteError": "Nie udało się anulować zaproszenia",
 			"roleUpdateSuccess": "Rola zaktualizowana",
-			"roleUpdateError": "Nie udało się zaktualizować roli"
+			"roleUpdateError": "Nie udało się zaktualizować roli",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",
@@ -3127,7 +3131,8 @@
 		},
 		"shared": {
 			"autosave": "Zmiany zapisują się automatycznie"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"tasks": {
 		"title": "Zadania",

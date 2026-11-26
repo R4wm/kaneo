@@ -7,7 +7,7 @@ import queryClient from "@/query-client";
 type InviteWorkspaceUserRequest = {
   workspaceId: string;
   email: string;
-  role: "admin" | "member" | "owner";
+  role: string;
   resend?: boolean;
   projectAccess?: "all" | "selected";
   projectIds?: string[];
@@ -34,6 +34,9 @@ function useInviteWorkspaceUser() {
 
       if (error?.code === "INVITATION_EMAIL_FAILED") {
         throw new Error(t("settings:invitationEmailFailed"));
+      }
+      if (error?.code === "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION") {
+        throw new Error(t("settings:invitationAlreadyPending"));
       }
       if (error) {
         throw new Error(error.message || "Failed to invite workspace member");

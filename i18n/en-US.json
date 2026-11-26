@@ -2179,6 +2179,7 @@
 			"emptyDescription": "Create a feed to see scheduled tasks in your calendar app."
 		},
 		"invitationEmailFailed": "Invitation saved, but email delivery failed. Check SMTP settings and resend the invitation.",
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list.",
 		"billing": {
 			"pageTitle": "Billing",
 			"subtitle": "Your plan for {{workspace}}.",
@@ -3531,6 +3532,10 @@
 			"removeError": "Failed to remove team member",
 			"cancelInviteSuccess": "Invitation cancelled successfully",
 			"cancelInviteError": "Failed to cancel invitation",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again.",
 			"roleUpdateSuccess": "Role updated",
 			"roleUpdateError": "Failed to update role"
 		},

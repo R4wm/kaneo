@@ -2315,7 +2315,8 @@
 		},
 		"shared": {
 			"autosave": "変更は自動的に保存されます"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -3471,7 +3472,11 @@
 			"cancelInviteSuccess": "招待をキャンセルしました",
 			"cancelInviteError": "招待のキャンセルに失敗しました",
 			"roleUpdateSuccess": "ロールを更新しました",
-			"roleUpdateError": "ロールの更新に失敗しました"
+			"roleUpdateError": "ロールの更新に失敗しました",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",

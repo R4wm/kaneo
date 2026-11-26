@@ -32,7 +32,9 @@ vi.mock("react-i18next", async (importOriginal) => ({
     t: (key: string) =>
       key === "settings:invitationEmailFailed"
         ? "The invitation email could not be sent."
-        : key,
+        : key === "settings:invitationAlreadyPending"
+          ? "This person already has a pending invitation."
+          : key,
   }),
 }));
 vi.mock("@/hooks/queries/workspace/use-active-workspace", () => ({
@@ -103,6 +105,31 @@ describe("invitation email delivery errors", () => {
       });
     },
   );
+  it("explains a duplicate pending invitation instead of the raw provider error", async () => {
+    inviteMember.mockResolvedValue({
+      data: null,
+      error: {
+        code: "USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION",
+        message: "User is already invited to this organization",
+      },
+    });
+    const onClose = vi.fn();
+    render(<InviteTeamMemberModal open onClose={onClose} />, { wrapper });
+    fireEvent.change(
+      await screen.findByPlaceholderText("team:inviteModal.emailPlaceholder"),
+      { target: { value: "member@example.com" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "team:inviteModal.sendInvitation" }),
+    );
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "This person already has a pending invitation.",
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
   it("shows an error instead of a success notification in the invite modal", async () => {
     const onClose = vi.fn();
     render(<InviteTeamMemberModal open onClose={onClose} />, { wrapper });

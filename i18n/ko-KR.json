@@ -2315,7 +2315,8 @@
 		},
 		"shared": {
 			"autosave": "변경 사항이 자동으로 저장됩니다"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -3471,7 +3472,11 @@
 			"cancelInviteError": "초대 취소에 실패했습니다",
 			"ariaInvitationActions": "초대 작업",
 			"roleUpdateSuccess": "역할이 업데이트되었습니다",
-			"roleUpdateError": "역할 업데이트에 실패했습니다"
+			"roleUpdateError": "역할 업데이트에 실패했습니다",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",

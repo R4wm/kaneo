@@ -2357,7 +2357,8 @@
 		},
 		"shared": {
 			"autosave": "Οι αλλαγές αποθηκεύονται αυτόματα"
-		}
+		},
+		"invitationAlreadyPending": "This person already has a pending invitation. To send the email again, choose Resend invitation from their row in the members list."
 	},
 	"navigation": {
 		"commandPalette": {
@@ -3532,7 +3533,11 @@
 			"cancelInviteError": "Αποτυχία ακύρωσης πρόσκλησης",
 			"ariaInvitationActions": "Ενέργειες πρόσκλησης",
 			"roleUpdateSuccess": "Ο ρόλος ενημερώθηκε",
-			"roleUpdateError": "Αποτυχία ενημέρωσης ρόλου"
+			"roleUpdateError": "Αποτυχία ενημέρωσης ρόλου",
+			"resendInvitation": "Resend Invitation",
+			"resendInviteError": "Failed to resend invitation",
+			"resendInviteSuccess": "Invitation email sent again",
+			"resendInviteUnavailable": "This invitation's project access could not be read. Cancel it and invite them again."
 		},
 		"projectAccess": {
 			"allProjects": "All projects",
